@@ -9,7 +9,7 @@
 # FROM nvcr.io/nvidia/pytorch:25.03-py3 or FROM nvcr.io/nvidia/ai-workbench/pytorch:1.0.6
 # In this example, we'll use the second image.
 
-FROM nvcr.io/nvidia/ai-workbench/pytorch:1.0.6
+FROM nvcr.io/nvidia/pytorch:25.03-py3
 
 #####################################
 # RCP CaaS requirement (Storage)
