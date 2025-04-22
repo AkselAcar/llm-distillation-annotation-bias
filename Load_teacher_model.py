@@ -1,11 +1,12 @@
 import accelerate
 import os
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 login("REMOVED_HF_TOKEN")
 
-cache_path = os.path.abspath("teacher_dataset")
+cache_path = os.path.join(os.environ["HOME"], "teacher_dataset")
 # Charger tokenizer et modèle LLaMA 4 Scout
 model_id = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
