@@ -47,5 +47,8 @@ USER ${LDAP_USERNAME}
 # Install additional dependencies
 #RUN pip install -r requirements.txt
 
+ENV PATH=/home/${LDAP_USERNAME}/.local/bin:$PATH
 RUN python3 -m pip install --no-cache-dir --upgrade pip
-RUN python3 -m pip install --no-cache-dir --prefix=/usr/local -r requirements.txt
+RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
+
+RUN python3 -m pip list
