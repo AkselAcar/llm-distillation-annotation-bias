@@ -2,7 +2,7 @@
 # pandas
 
 # Specialized DL libraries
-torch --extra-index-url https://download.pytorch.org/whl/cu128
+torch==1.10.0
 # torchaudio==2.5.1
 evaluate==0.4.3
 sentence-transformers
