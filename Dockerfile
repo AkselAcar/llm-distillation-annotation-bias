@@ -47,5 +47,5 @@ USER ${LDAP_USERNAME}
 # Install additional dependencies
 #RUN pip install -r requirements.txt
 
-RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install --no-cache-dir --upgrade pip
+RUN python3 -m pip install --no-cache-dir --prefix=/usr/local -r requirements.txt
