@@ -12,5 +12,6 @@ nltk==3.9.1
 datasets 
 transformers
 accelerate
+hf_xet
 
 
