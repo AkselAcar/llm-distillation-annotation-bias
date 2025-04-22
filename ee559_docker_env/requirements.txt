@@ -1,5 +1,4 @@
 # Standard libraries
-numpy
 pandas
 
 # Specialized DL libraries
@@ -9,7 +8,9 @@ evaluate==0.4.3
 sentence-transformers
 nltk==3.9.1
 
-# Hugging Face datasets
+# Hugging Face datasets and libraries
 datasets 
+transformers
+accelerate
 
 
