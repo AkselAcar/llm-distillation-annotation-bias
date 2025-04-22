@@ -47,3 +47,4 @@ USER ${LDAP_USERNAME}
 # Install additional dependencies
 RUN pip install -r requirements.txt
 
+RUN python3 -c "import accelerate" || echo 'accelerate not found in python3'
