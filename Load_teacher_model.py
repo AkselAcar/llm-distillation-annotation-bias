@@ -6,6 +6,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 login("REMOVED_HF_TOKEN")
 
+# MODIFIED FILE
+
 cache_path = os.path.join(os.environ["HOME"], "teacher_dataset")
 # Charger tokenizer et modèle LLaMA 4 Scout
 model_id = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
@@ -16,6 +18,8 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.bfloat16,
     device_map="auto"
 )
+
+
 
 # Exemple d'entrée
 input_text = "Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: I hate you all."
