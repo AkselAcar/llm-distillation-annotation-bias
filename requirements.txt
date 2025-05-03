@@ -9,9 +9,9 @@ sentence-transformers
 nltk==3.9.1
 
 # Hugging Face datasets and libraries
-datasets 
+# datasets 
 transformers
 accelerate
 hf_xet
-
+python-dotenv
 

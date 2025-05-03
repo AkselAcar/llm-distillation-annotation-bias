@@ -1,16 +1,18 @@
-import accelerate
+# import accelerate
 import os
 import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from huggingface_hub import login
-login("REMOVED_HF_TOKEN")
+# from huggingface_hub import login
+# login("REMOVED_HF_TOKEN")
 
 # MODIFIED FILE
 
+
+model_path = "/mnt/course-ee-559/scratch/models/huggingface_models_v2"
 cache_path = os.path.join(os.environ["HOME"], "teacher_dataset")
 # Charger tokenizer et modèle LLaMA 4 Scout
-model_id = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+model_id = model_path + "/Llama-4-Scout-17B-16E-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
@@ -34,6 +36,7 @@ generation_output = model.generate(
 
 logits = generation_output.scores[0]  # shape: [1, vocab_size]
 logits = logits[0]  # remove batch dim
+print(logits)
 
 yes_token_id = tokenizer("yes", add_special_tokens=False)["input_ids"][0]
 no_token_id = tokenizer("no", add_special_tokens=False)["input_ids"][0]
