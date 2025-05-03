@@ -45,15 +45,15 @@ USER ${LDAP_USERNAME}
 
 
 # Install additional dependencies
-#RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Ajout de .local au PATH pour que pip sache où chercher les binaires
-ENV PATH=/home/${LDAP_USERNAME}/.local/bin:$PATH
-ENV PYTHONUSERBASE=/home/${LDAP_USERNAME}/.local
+# ENV PATH=/home/${LDAP_USERNAME}/.local/bin:$PATH
+# ENV PYTHONUSERBASE=/home/${LDAP_USERNAME}/.local
 
 # Installer pip et les paquets nécessaires dans l'environnement de l'utilisateur
-RUN python3 -m pip install --no-cache-dir --upgrade pip
-RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
+# RUN python3 -m pip install --no-cache-dir --upgrade pip
+# RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
 
 # Assurer que le module est bien dans le bon chemin pour Python
-ENV PYTHONPATH=/home/${LDAP_USERNAME}/.local/lib/python3.8/site-packages:$PYTHONPATH
+# ENV PYTHONPATH=/home/${LDAP_USERNAME}/.local/lib/python3.8/site-packages:$PYTHONPATH
