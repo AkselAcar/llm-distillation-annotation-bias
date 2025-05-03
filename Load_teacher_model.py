@@ -5,21 +5,13 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForCausalLM
 # from huggingface_hub import login
 # login("REMOVED_HF_TOKEN")
+from dotenv import load_dotenv
+load_dotenv()
 
-# MODIFIED FILE
 
-
-model_path = "/mnt/course-ee-559/scratch/models/huggingface_models_v2"
-cache_path = os.path.join(os.environ["HOME"], "teacher_dataset")
-# Charger tokenizer et modèle LLaMA 4 Scout
-model_id = model_path + "/Llama-4-Scout-17B-16E-Instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    cache_dir=cache_path,
-    torch_dtype=torch.bfloat16,
-    device_map="auto"
-)
+# print(os.getenv("LLAMA4_PATH_SCRATCH"))
+tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), local_files_only=True)
+model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), local_files_only=True)
 
 
 input_text = "Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: I hate you all."

@@ -14,4 +14,3 @@ transformers
 accelerate
 hf_xet
 python-dotenv
-
