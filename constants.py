@@ -1,0 +1,1 @@
+DATA_PATH = "/pvc/home/EE-559_2025/teacher_dataset/"
