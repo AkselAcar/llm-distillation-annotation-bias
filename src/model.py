@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import DistilBERTTokenizer, DistilBertForSequenceClassification, AdamW
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
+from utils import get_criterion, get_optimizer
 
 # Custom dataset class
 class HateSpeechDataset(Dataset):
@@ -40,12 +41,12 @@ class HateSpeechDataset(Dataset):
 
 # Distillation trainer class
 class DistilBertDistiller:
-    def __init__(self, num_labels=2, lr=2e-5, device='cuda' if torch.cuda.is_available() else 'cpu'):
-        self.device = device
+    def __init__(self, num_labels=2, lr=2e-5, 
+                device='cuda' if torch.cuda.is_available() else 'cpu'):
+        self.device = device # Note : no need to have more than one GPU for this
         self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
         self.tokenizer = DistilBERTTokenizer.from_pretrained('distilbert-base-uncased')
         self.model.to(self.device)
-        self.optimizer = AdamW(self.model.parameters(), lr=lr)
 
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
         soft_student = nn.functional.log_softmax(student_logits / temperature, dim=1)
@@ -54,7 +55,12 @@ class DistilBertDistiller:
         ce_loss = nn.functional.cross_entropy(student_logits, hard_labels)
         return alpha * ce_loss + (1 - alpha) * kl_loss
 
-    def fit(self, train_dataset, val_dataset=None, epochs=3, batch_size=16, temperature=2.0, alpha=0.5):
+    def fit(self, train_dataset, val_dataset=None, epochs=constants.N_EPOCHS, 
+            batch_size=constants.BATCH_SIZE, temperature=constants.TEMPERATURE,
+            alpha=constants.ALPHA,optimizer=constants.OPTIMIZER, 
+            criterion=constants.CRITERION):
+        self.optimizer = get_optimizer(optimizer, self.model.parameters(), lr)
+        self.criterion = get_criterion(criterion)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         if val_dataset:
             val_loader = DataLoader(val_dataset, batch_size=batch_size)

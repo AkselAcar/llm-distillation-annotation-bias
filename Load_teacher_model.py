@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import constants
 # from huggingface_hub import login
 # login("REMOVED_HF_TOKEN")
 from dotenv import load_dotenv
@@ -26,7 +27,7 @@ model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"),
 
 # model.to(device)
 # print(device)
-dataset_path = "/pvc/home/EE-559_2025/teacher_dataset/DGHD_1.csv"
+dataset_path = constants.DATA_DIR + "DGHD_1.csv"
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
 
@@ -80,8 +81,8 @@ else :
 
     for i in tqdm(range(0, len(prompts), batch_size)):
         batch_prompts = prompts[i:i + batch_size]
-        inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True).to(model.device)
-
+        inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}  # careful move
         with torch.no_grad():
             outputs = model(**inputs)
             logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
