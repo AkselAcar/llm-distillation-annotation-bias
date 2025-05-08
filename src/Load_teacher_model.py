@@ -5,28 +5,43 @@ import torch.nn.functional as F
 import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import constants
 # from huggingface_hub import login
 # login("REMOVED_HF_TOKEN")
 from dotenv import load_dotenv
 load_dotenv()
 
-tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+
+# LLAMA4
+# tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+#                                         device_map="auto",
+#                                         offload_folder="offload",  # optional: offload overflow to disk
+#                                         offload_state_dict=True,
+#                                         local_files_only=True)
+# model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+#                                         device_map="auto",
+#                                         offload_folder="offload",  # optional: offload overflow to disk
+#                                         offload_state_dict=True,
+#                                         local_files_only=True)
+
+# PHI4
+tokenizer = AutoTokenizer.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
                                         device_map="auto",
-                                        offload_folder="offload",  # optional: offload overflow to disk
-                                        offload_state_dict=True,
+                                        # offload_folder="offload",  # optional: offload overflow to disk
+                                        # offload_state_dict=True,
                                         local_files_only=True)
-model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+model = AutoModelForCausalLM.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
                                         device_map="auto",
-                                        offload_folder="offload",  # optional: offload overflow to disk
-                                        offload_state_dict=True,
+                                        # offload_folder="offload",  # optional: offload overflow to disk
+                                        # offload_state_dict=True,
                                         local_files_only=True)
 
 # available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # model.to(device)
-print(device)
-dataset_path = "/pvc/home/EE-559_2025/teacher_dataset/DGHD_1.csv"
+# print(device)
+dataset_path = constants.DATA_DIR + "DGHD_1.csv"
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
 
@@ -66,43 +81,37 @@ if easy :
 
 else :
 
-    # Lists to store results
+    batch_size = constants.BATCH_SIZE  # tune based on your GPU memory
+
+    # Precompute prompts
+    prompts = [f"Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: {text}" for text in input_df['text']]
+
     soft_yes_list = []
     soft_no_list = []
     predicted_list = []
 
-
-    # Prepare yes/no token IDs once
     yes_token_id = tokenizer("yes", add_special_tokens=False)["input_ids"][0]
     no_token_id = tokenizer("no", add_special_tokens=False)["input_ids"][0]
 
-    print("Created tokenizers")
+    for i in tqdm(range(0, len(prompts), batch_size)):
+        batch_prompts = prompts[i:i + batch_size]
+        inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}  # careful move
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
+            last_logits = logits[:, -1, :]  # [batch_size, vocab_size]
 
-    # Loop over each text
-    for idx, row in tqdm(input_df.iterrows()):
-        text_input = row['text']
-        input_prompt = f"Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: {text_input}"
-        
-        inputs = tokenizer(input_prompt, return_tensors="pt").to(model.device)
+            yes_logits = last_logits[:, yes_token_id]
+            no_logits = last_logits[:, no_token_id]
 
-        generation_output = model.generate(
-            **inputs,
-            max_new_tokens=1,
-            return_dict_in_generate=True,
-            output_scores=True,
-            do_sample=False,
-        )
+            soft_targets = F.softmax(torch.stack([yes_logits, no_logits], dim=1), dim=-1)
 
-        logits = generation_output.scores[0][0]  # shape: [vocab_size]
+            preds = (soft_targets[:, 0] > soft_targets[:, 1]).tolist()
 
-        logits_sub = torch.tensor([logits[yes_token_id], logits[no_token_id]])
-        soft_targets = F.softmax(logits_sub, dim=-1)
-
-        predicted = 'yes' if soft_targets[0] > soft_targets[1] else 'no'
-
-        soft_yes_list.append(logits_sub[0])
-        soft_no_list.append(logits_sub[1])
-        predicted_list.append(predicted)
+            soft_yes_list.extend(yes_logits.tolist())
+            soft_no_list.extend(no_logits.tolist())
+            predicted_list.extend(['yes' if p else 'no' for p in preds])
 
     input_df['soft_yes'] = soft_yes_list
     input_df['soft_no'] = soft_no_list

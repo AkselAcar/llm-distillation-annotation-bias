@@ -3,7 +3,7 @@
 # THIS DOCKERFILE COMES WITH NO GUARANTEES FOR OTHER MODELS. 
 #####################################
 
-FROM nvcr.io/nvidia/pytorch:25.03-py3
+FROM nvcr.io/nvidia/pytorch:22.12-py3
 
 #####################################
 # RCP CaaS requirement (Storage)
