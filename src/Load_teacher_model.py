@@ -38,10 +38,10 @@ model = AutoModelForCausalLM.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"),
 
 # available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print("DEVICES :", model.hf_device_map)
 # model.to(device)
 # print(device)
-dataset_path = constants.DATA_DIR + "DGHD_1.csv"
+dataset_path = constants.DATA_DIR / "DGHD_1.csv"
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
 
@@ -118,7 +118,7 @@ else :
     input_df['predicted'] = predicted_list
 
 
-    output_csv_path = 'soft_targets_Llama.csv'
+    output_csv_path = constants.ROOT_DIR / 'soft_targets_Llama.csv'
     input_df.to_csv(output_csv_path, index=False)
 
     print(f"\nSaved predictions to {output_csv_path}")
