@@ -1,5 +1,17 @@
+# transformers
+# accelerate
+# datasets
+# torchvision
+# scikit-learn
+
+
+evaluate==0.4.3
+sentence-transformers
+nltk==3.9.1
+
+# Hugging Face datasets and libraries
+# datasets 
 transformers
 accelerate
-datasets
-torchvision
-scikit-learn
+hf_xet
+python-dotenv
