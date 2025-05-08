@@ -11,7 +11,7 @@ nltk==3.9.1
 
 # Hugging Face datasets and libraries
 # datasets 
-transformers
+transformers[torch]
 accelerate
 hf_xet
 python-dotenv
