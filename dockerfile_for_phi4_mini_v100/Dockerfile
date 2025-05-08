@@ -3,7 +3,7 @@
 # THIS DOCKERFILE COMES WITH NO GUARANTEES FOR OTHER MODELS. 
 #####################################
 
-FROM nvcr.io/nvidia/pytorch:22.12-py3
+FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
 
 #####################################
 # RCP CaaS requirement (Storage)
