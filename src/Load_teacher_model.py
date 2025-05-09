@@ -41,7 +41,8 @@ model = AutoModelForCausalLM.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"),
 print("DEVICES :", model.hf_device_map)
 # model.to(device)
 # print(device)
-dataset_path = constants.DATA_DIR / "DGHD_1.csv"
+file = "DGHD.csv"
+dataset_path = constants.DATA_DIR / "first-level" / file
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
 
@@ -86,6 +87,8 @@ else :
     # Precompute prompts
     prompts = [f"Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: {text}" for text in input_df['text']]
 
+    logit_yes_list = []
+    logit_no_list = []
     soft_yes_list = []
     soft_no_list = []
     predicted_list = []
@@ -98,27 +101,49 @@ else :
         inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
         inputs = {k: v.to(model.device) for k, v in inputs.items()}  # careful move
         with torch.no_grad():
-            outputs = model(**inputs)
-            logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
-            last_logits = logits[:, -1, :]  # [batch_size, vocab_size]
 
-            yes_logits = last_logits[:, yes_token_id]
-            no_logits = last_logits[:, no_token_id]
+            # This works for Llama-4, but not for Phi-4 !!!!
+            # generation_output = model.generate(
+            #     **inputs,
+            #     max_new_tokens=1,
+            #     return_dict_in_generate=True,
+            #     output_scores=True,
+            #     do_sample=False,   # deterministic, no sampling
+            # )
+
+            # # generation_output.scores is a list of tensors, one per generated token
+            # # since we only generate 1 new token, take the first (and only) item
+            # scores = generation_output.scores[0]  # shape: [batch_size, vocab_size]
+
+            # This works for Phi-4
+            outputs = model(**inputs)  # get raw logits
+            logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
+
+            # Get logits at the last position (the next token the model would predict)
+            scores = logits[:, -1, :]  # shape: [batch_size, vocab_size]
+
+            # Here, it works for both
+            # Extract logits for 'yes' and 'no' tokens
+            yes_logits = scores[:, yes_token_id]
+            no_logits = scores[:, no_token_id]
 
             soft_targets = F.softmax(torch.stack([yes_logits, no_logits], dim=1), dim=-1)
 
             preds = (soft_targets[:, 0] > soft_targets[:, 1]).tolist()
 
-            soft_yes_list.extend(yes_logits.tolist())
-            soft_no_list.extend(no_logits.tolist())
+            logit_yes_list.extend(yes_logits.tolist())
+            logit_no_list.extend(no_logits.tolist())
+            soft_yes_list.extend(soft_targets[:, 0].tolist())
+            soft_no_list.extend(soft_targets[:, 1].tolist())
             predicted_list.extend(['yes' if p else 'no' for p in preds])
 
+    input_df['logit_yes'] = logit_yes_list
+    input_df['logit_no'] = logit_no_list
     input_df['soft_yes'] = soft_yes_list
     input_df['soft_no'] = soft_no_list
-    input_df['predicted'] = predicted_list
 
-
-    output_csv_path = constants.ROOT_DIR / 'soft_targets_Llama.csv'
+    output_file = 'soft_targets_Phi4_' + file
+    output_csv_path = constants.DATA_DIR / "second-level" / output_file
     input_df.to_csv(output_csv_path, index=False)
 
     print(f"\nSaved predictions to {output_csv_path}")

@@ -11,14 +11,15 @@ from transformers import DistilBERTTokenizer, DistilBertForSequenceClassificatio
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
 from utils import get_criterion, get_optimizer
+import constants
 
 # Custom dataset class
 class HateSpeechDataset(Dataset):
-    def __init__(self, texts, hard_labels, soft_targets, tokenizer, max_len=128):
+    def __init__(self, texts, hard_labels, soft_targets, max_len=128):
         self.texts = texts
         self.hard_labels = hard_labels
         self.soft_targets = soft_targets  # shape: (num_samples, num_classes)
-        self.tokenizer = tokenizer
+        self.tokenizer = DistilBERTTokenizer.from_pretrained('distilbert-base-uncased')
         self.max_len = max_len
 
     def __len__(self):
@@ -35,7 +36,7 @@ class HateSpeechDataset(Dataset):
         return {
             'input_ids': enc['input_ids'].squeeze(0),
             'attention_mask': enc['attention_mask'].squeeze(0),
-            'hard_label': torch.tensor(self.hard_labels[idx], dtype=torch.long),
+            'hard_label': torch.tensor(self.hard_labels[idx], dtype=torch.bool),
             'soft_target': torch.tensor(self.soft_targets[idx], dtype=torch.float)
         }
 
@@ -55,10 +56,10 @@ class DistilBertDistiller:
         ce_loss = nn.functional.cross_entropy(student_logits, hard_labels)
         return alpha * ce_loss + (1 - alpha) * kl_loss
 
-    def fit(self, train_dataset, val_dataset=None, epochs=constants.N_EPOCHS, 
-            batch_size=constants.BATCH_SIZE, temperature=constants.TEMPERATURE,
-            alpha=constants.ALPHA,optimizer=constants.OPTIMIZER, 
-            criterion=constants.CRITERION):
+    def fit(self, train_dataset, val_dataset=None, epochs=constants.N_EPOCHS,
+            lr=constants.LEARNING_RATE, batch_size=constants.BATCH_SIZE, 
+            temperature=constants.TEMPERATURE, alpha=constants.ALPHA,
+            optimizer=constants.OPTIMIZER, criterion=constants.CRITERION):
         self.optimizer = get_optimizer(optimizer, self.model.parameters(), lr)
         self.criterion = get_criterion(criterion)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
