@@ -109,3 +109,4 @@ class DistilBertDistiller:
         acc = accuracy_score(labels, preds)
         f1 = f1_score(labels, preds, average='macro')
         print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}")
+        return acc, f1
