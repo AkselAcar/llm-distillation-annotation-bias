@@ -8,20 +8,21 @@ datasets:
 -
   set: "train"
   name: 'DGHD.csv'
-  split: [0, 0.75]
+  split: [0, 0.5]
   shuffle: True
   num_workers: 4
 
 -
   set: "val"
   name: 'DGHD.csv'
-  split: [0.75, 1]
+  split: [0.5, 0.75]
   shuffle: False
   num_workers: 4
 
 -
   set: "test" # Possible to add another test set instead of just splitting
-  split: [0, 1]
+  name: 'DGHD.csv'
+  split: [0.75, 1]
   shuffle: False
   num_workers: 4
 
@@ -29,6 +30,7 @@ datasets:
 model:
   n_epochs: 10
   optimizer: "SGD"
+  criterion: "BCEWithLogitsLoss"
   use_scheduler: True
   learning_rate: 0.001
   batch_size: 32

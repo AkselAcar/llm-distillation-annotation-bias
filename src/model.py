@@ -7,7 +7,7 @@ to keep the representation quite compact.
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
-from transformers import DistilBERTTokenizer, DistilBertForSequenceClassification, AdamW
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
 from utils import get_criterion, get_optimizer
@@ -19,7 +19,7 @@ class HateSpeechDataset(Dataset):
         self.texts = texts
         self.hard_labels = hard_labels
         self.soft_targets = soft_targets  # shape: (num_samples, num_classes)
-        self.tokenizer = DistilBERTTokenizer.from_pretrained('distilbert-base-uncased')
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.max_len = max_len
 
     def __len__(self):
@@ -36,17 +36,16 @@ class HateSpeechDataset(Dataset):
         return {
             'input_ids': enc['input_ids'].squeeze(0),
             'attention_mask': enc['attention_mask'].squeeze(0),
-            'hard_label': torch.tensor(self.hard_labels[idx], dtype=torch.bool),
+            'hard_label': torch.tensor(self.hard_labels[idx], dtype=torch.long),
             'soft_target': torch.tensor(self.soft_targets[idx], dtype=torch.float)
         }
 
 # Distillation trainer class
 class DistilBertDistiller:
-    def __init__(self, num_labels=2, lr=2e-5, 
-                device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, num_labels=2, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device # Note : no need to have more than one GPU for this
         self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
-        self.tokenizer = DistilBERTTokenizer.from_pretrained('distilbert-base-uncased')
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model.to(self.device)
 
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
@@ -62,14 +61,14 @@ class DistilBertDistiller:
             optimizer=constants.OPTIMIZER, criterion=constants.CRITERION):
         self.optimizer = get_optimizer(optimizer, self.model.parameters(), lr)
         self.criterion = get_criterion(criterion)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        if val_dataset:
-            val_loader = DataLoader(val_dataset, batch_size=batch_size)
+        # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        # if val_dataset:
+        #     val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
         for epoch in range(epochs):
             self.model.train()
             total_loss = 0
-            for batch in train_loader:
+            for batch in train_dataset:
                 self.optimizer.zero_grad()
                 input_ids = batch['input_ids'].to(self.device)
                 attention_mask = batch['attention_mask'].to(self.device)
@@ -84,17 +83,17 @@ class DistilBertDistiller:
                 self.optimizer.step()
                 total_loss += loss.item()
 
-            avg_loss = total_loss / len(train_loader)
+            avg_loss = total_loss / len(train_dataset)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
             if val_dataset:
-                self.evaluate(val_loader)
+                self.evaluate(val_dataset)
 
-    def evaluate(self, val_loader):
+    def evaluate(self, loader):
         self.model.eval()
         preds, labels = [], []
         with torch.no_grad():
-            for batch in val_loader:
+            for batch in loader:
                 input_ids = batch['input_ids'].to(self.device)
                 attention_mask = batch['attention_mask'].to(self.device)
                 hard_labels = batch['hard_label'].to(self.device)

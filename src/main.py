@@ -1,9 +1,11 @@
 import argparse
-from model import DistilBertDistiller, HateSpeechDataset
+from model import DistilBertDistiller
 from utils import read_yml
 import constants
 import os
-from utils import parse_datasets
+from dataloader import parse_datasets
+from datetime import datetime
+import pandas as pd
 
 def main(args: argparse.Namespace):
     """Define the main function to run the project.
@@ -11,10 +13,12 @@ def main(args: argparse.Namespace):
     Args:
         args (argparse.Namespace) : Arguments from the command line.
     """
+
+    start_time = datetime.now()
     cfg_file = args.cfg
     cfg = read_yml(cfg_file)
     model_cfg = cfg.get("model", {})
-    model = DistilBertDistiller(lr=model_cfg.get("learning_rate", constants.LEARNING_RATE))
+    model = DistilBertDistiller(device=constants.DEVICE)
 
     datasets_path = args.datasets_path
 
@@ -23,23 +27,27 @@ def main(args: argparse.Namespace):
                                                            data_path=datasets_path)
 
     print("Training model...")
-    # fit(self, train_dataset, val_dataset=None, epochs=3, batch_size=16, temperature=2.0, alpha=0.5)
     model.fit(
         loader_train,
         loader_val,
         epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
-        learning_rate=model_cfg.get("learning_rate", constants.LEARNING_RATE),
-        criterion_name=model_cfg.get("criterion", constants.CRITERION),
-        optimizer_name=cfg.get("optimizer", constants.OPTIMIZER),
+        lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
+        batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
+        temperature=model_cfg.get("temperature", constants.TEMPERATURE),
+        alpha=model_cfg.get("alpha", constants.ALPHA),
+        optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
+        criterion=model_cfg.get("criterion", constants.CRITERION)
     )
 
     # Evaluate on test data and save the results
     acc, f1 = model.evaluate(loader=loader_test)
 
     # Put the configuration, results and run_id in a .csv file
-    
-
-    model.create_submission(loader=loader_test, path=os.path.join(constants.SUBMISSION_DIR, str(run_id) + ".csv"))
+    end_time = datetime.now()
+    out_dict = {'Start' : start_time, 'End' : end_time, 'Accuracy' : acc, 'F1' : f1}
+    out_dict.update(cfg)
+    out_df = pd.DataFrame(out_dict)
+    out_df.to_csv(constants.OUTPUTS_DIR / "logs.csv", index=False, mode='a')
 
 if __name__ == "__main__":
 
@@ -51,8 +59,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    args.cfg = os.path.join(constants.PROJECT_DIR, args.cfg)
-
-    # print(constants.ROOT_DIR)
+    args.cfg = os.path.join(constants.ROOT_DIR, args.cfg)
 
     main(args=args)
