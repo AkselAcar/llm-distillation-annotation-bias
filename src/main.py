@@ -44,10 +44,18 @@ def main(args: argparse.Namespace):
 
     # Put the configuration, results and run_id in a .csv file
     end_time = datetime.now()
-    out_dict = {'Start' : start_time, 'End' : end_time, 'Accuracy' : acc, 'F1' : f1}
-    out_dict.update(cfg)
-    out_df = pd.DataFrame(out_dict)
-    out_df.to_csv(constants.OUTPUTS_DIR / "logs.csv", index=False, mode='a')
+    out_dict = {'Start' : start_time.strftime('%d/%m/%y %H:%M:%S'),
+                'End' : end_time.strftime('%d/%m/%y %H:%M:%S'), 'Accuracy' : acc, 'F1' : f1}
+    # Add model config
+    out_dict.update(model_cfg)
+    # Add dataset config
+    out_dict.update({dataset['set'] + "[split]": dataset['name'] + str(dataset['split']) for dataset in datasets_cfg})
+    print(out_dict)
+    # print("DATASET CONFIG", datasets_cfg)
+    out_df = pd.DataFrame([out_dict])
+    file_path = constants.OUTPUTS_DIR / "logs.csv"
+    file_exists = os.path.isfile(file_path)
+    out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
 
 if __name__ == "__main__":
 

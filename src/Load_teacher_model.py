@@ -1,4 +1,4 @@
-# import accelerate
+import accelerate
 import os
 import torch
 import torch.nn.functional as F
@@ -142,7 +142,7 @@ else :
     input_df['soft_yes'] = soft_yes_list
     input_df['soft_no'] = soft_no_list
 
-    output_file = 'soft_targets_Phi4_' + file
+    output_file = file
     output_csv_path = constants.DATA_DIR / "second-level" / output_file
     input_df.to_csv(output_csv_path, index=False)
 

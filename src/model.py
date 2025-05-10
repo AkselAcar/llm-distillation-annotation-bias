@@ -6,10 +6,9 @@ to keep the representation quite compact.
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
 from sklearn.metrics import accuracy_score, f1_score
-import numpy as np
 from utils import get_criterion, get_optimizer
 import constants
 

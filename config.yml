@@ -28,7 +28,7 @@ datasets:
 
 # Model
 model:
-  n_epochs: 10
+  n_epochs: 2
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
