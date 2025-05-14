@@ -108,3 +108,33 @@ class DistilBertDistiller:
         f1 = f1_score(labels, preds, average='macro')
         print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}")
         return acc, f1
+    
+
+class DistilBertBaseline:
+    def __init__(self, num_labels=2, device='cuda' if torch.cuda.is_available() else 'cpu'):
+        self.device = device # Note : no need to have more than one GPU for this
+        self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        self.model.to(self.device)
+
+    def evaluate(self, loader):
+        self.model.eval()
+        preds, labels = [], []
+        with torch.no_grad():
+            for batch in loader:
+                input_ids = batch['input_ids'].to(self.device)
+                attention_mask = batch['attention_mask'].to(self.device)
+                hard_labels = batch['hard_label'].to(self.device)
+
+                outputs = self.model(input_ids, attention_mask=attention_mask)
+                logits = outputs.logits
+                predictions = torch.argmax(logits, dim=1)
+
+                preds.extend(predictions.cpu().numpy())
+                labels.extend(hard_labels.cpu().numpy())
+
+        acc = accuracy_score(labels, preds)
+        f1 = f1_score(labels, preds, average='macro')
+        print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}")
+        return acc, f1
+
