@@ -1,5 +1,5 @@
 import argparse
-from model import DistilBertDistiller
+from model import DistilBertDistiller, DistilBertBaseline
 from utils import read_yml
 import constants
 import os
@@ -18,7 +18,8 @@ def main(args: argparse.Namespace):
     cfg_file = args.cfg
     cfg = read_yml(cfg_file)
     model_cfg = cfg.get("model", {})
-    model = DistilBertDistiller(device=constants.DEVICE)
+
+    model = DistilBertBaseline(device=constants.DEVICE) if args.baseline else DistilBertDistiller(device=constants.DEVICE)
 
     datasets_path = args.datasets_path
 
@@ -27,17 +28,18 @@ def main(args: argparse.Namespace):
                                                            data_path=datasets_path)
 
     print("Training model...")
-    model.fit(
-        loader_train,
-        loader_val,
-        epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
-        lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
-        batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
-        temperature=model_cfg.get("temperature", constants.TEMPERATURE),
-        alpha=model_cfg.get("alpha", constants.ALPHA),
-        optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
-        criterion=model_cfg.get("criterion", constants.CRITERION)
-    )
+    if not args.baseline : # Train the model if not baseline
+        model.fit(
+            loader_train,
+            loader_val,
+            epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
+            lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
+            batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
+            temperature=model_cfg.get("temperature", constants.TEMPERATURE),
+            alpha=model_cfg.get("alpha", constants.ALPHA),
+            optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
+            criterion=model_cfg.get("criterion", constants.CRITERION)
+        )
 
     # Evaluate on test data and save the results
     acc, f1 = model.evaluate(loader=loader_test)
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="File creation script.")
     parser.add_argument("--cfg", default="config.yml", help="Configuration file")
     parser.add_argument("--datasets_path", default=constants.DATA_DIR, help="Datasets path")
+    parser.add_argument("--baseline", default=False, help="Compute DistilBERT baseline")
     # parser.add_argument("--results_path", required=True, help="Output directory")
 
     args = parser.parse_args()
