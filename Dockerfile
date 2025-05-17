@@ -58,4 +58,5 @@ RUN pip install -r requirements.txt
 # Assurer que le module est bien dans le bon chemin pour Python
 # ENV PYTHONPATH=/home/${LDAP_USERNAME}/.local/lib/python3.8/site-packages:$PYTHONPATH
 
-RUN pip install accelerate
+RUN pip install --no-cache-dir accelerate
+RUN python3 -c "import accelerate; print(accelerate.__version__)"
