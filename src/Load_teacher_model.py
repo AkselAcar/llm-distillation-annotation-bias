@@ -6,42 +6,53 @@ import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import constants
+import argparse
 # from huggingface_hub import login
 # login("REMOVED_HF_TOKEN")
 from dotenv import load_dotenv
 load_dotenv()
 
 
-# LLAMA4
-# tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
-#                                         device_map="auto",
-#                                         offload_folder="offload",  # optional: offload overflow to disk
-#                                         offload_state_dict=True,
-#                                         local_files_only=True)
-# model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
-#                                         device_map="auto",
-#                                         offload_folder="offload",  # optional: offload overflow to disk
-#                                         offload_state_dict=True,
-#                                         local_files_only=True)
+parser = argparse.ArgumentParser(description="File creation script.")
+parser.add_argument("--model_name", required=True, help="Model name for soft target creation")
+parser.add_argument("--dataset_name", required=True, help="Dataset name to compute soft labels on")
 
+args = parser.parse_args()
+
+model_name = args.model_name
+file = args.dataset_name
+
+
+if model_name == 'Llama4' :
+# LLAMA4
+    tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+                                            device_map="auto",
+                                            offload_folder="offload",  # optional: offload overflow to disk
+                                            offload_state_dict=True,
+                                            local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
+                                            device_map="auto",
+                                            offload_folder="offload",  # optional: offload overflow to disk
+                                            offload_state_dict=True,
+                                            local_files_only=True)
+elif model_name == 'Phi4' :
 # PHI4
-tokenizer = AutoTokenizer.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
-                                        device_map="auto",
-                                        # offload_folder="offload",  # optional: offload overflow to disk
-                                        # offload_state_dict=True,
-                                        local_files_only=True)
-model = AutoModelForCausalLM.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
-                                        device_map="auto",
-                                        # offload_folder="offload",  # optional: offload overflow to disk
-                                        # offload_state_dict=True,
-                                        local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
+                                            device_map="auto",
+                                            # offload_folder="offload",  # optional: offload overflow to disk
+                                            # offload_state_dict=True,
+                                            local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(os.getenv("PHI4_PATH_SCRATCH"), 
+                                            device_map="auto",
+                                            # offload_folder="offload",  # optional: offload overflow to disk
+                                            # offload_state_dict=True,
+                                            local_files_only=True)
 
 # available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("DEVICES :", model.hf_device_map)
+# print("DEVICES :", model.hf_device_map)
 # model.to(device)
 # print(device)
-file = "DGHD.csv"
 dataset_path = constants.DATA_DIR / "first-level" / file
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
@@ -103,24 +114,26 @@ else :
         with torch.no_grad():
 
             # This works for Llama-4, but not for Phi-4 !!!!
-            # generation_output = model.generate(
-            #     **inputs,
-            #     max_new_tokens=1,
-            #     return_dict_in_generate=True,
-            #     output_scores=True,
-            #     do_sample=False,   # deterministic, no sampling
-            # )
+            if model_name == 'Llama4' :
+                generation_output = model.generate(
+                    **inputs,
+                    max_new_tokens=1,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                    do_sample=False,   # deterministic, no sampling
+                )
 
-            # # generation_output.scores is a list of tensors, one per generated token
-            # # since we only generate 1 new token, take the first (and only) item
-            # scores = generation_output.scores[0]  # shape: [batch_size, vocab_size]
+                # generation_output.scores is a list of tensors, one per generated token
+                # since we only generate 1 new token, take the first (and only) item
+                scores = generation_output.scores[0]  # shape: [batch_size, vocab_size]
 
-            # This works for Phi-4
-            outputs = model(**inputs)  # get raw logits
-            logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
+            # This works for Phi-4  
+            elif model_name == 'Phi4' :
+                outputs = model(**inputs)  # get raw logits
+                logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
 
-            # Get logits at the last position (the next token the model would predict)
-            scores = logits[:, -1, :]  # shape: [batch_size, vocab_size]
+                # Get logits at the last position (the next token the model would predict)
+                scores = logits[:, -1, :]  # shape: [batch_size, vocab_size]
 
             # Here, it works for both
             # Extract logits for 'yes' and 'no' tokens
@@ -142,7 +155,7 @@ else :
     input_df['soft_yes'] = soft_yes_list
     input_df['soft_no'] = soft_no_list
 
-    output_file = file
+    output_file = model_name + '_' + file
     output_csv_path = constants.DATA_DIR / "second-level" / output_file
     input_df.to_csv(output_csv_path, index=False)
 
