@@ -2,6 +2,7 @@ import accelerate
 import os
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import autocast
 import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -27,13 +28,13 @@ if model_name == 'Llama4' :
 # LLAMA4
     tokenizer = AutoTokenizer.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
                                             device_map="auto",
-                                            offload_folder="offload",  # optional: offload overflow to disk
-                                            offload_state_dict=True,
+                                            # offload_folder="offload",  # optional: offload overflow to disk
+                                            # offload_state_dict=True,
                                             local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(os.getenv("LLAMA4_PATH_SCRATCH"), 
                                             device_map="auto",
-                                            offload_folder="offload",  # optional: offload overflow to disk
-                                            offload_state_dict=True,
+                                            # offload_folder="offload",  # optional: offload overflow to disk
+                                            # offload_state_dict=True,
                                             local_files_only=True)
 elif model_name == 'Phi4' :
 # PHI4
@@ -53,6 +54,9 @@ elif model_name == 'Phi4' :
 # print("DEVICES :", model.hf_device_map)
 # model.to(device)
 # print(device)
+
+tokenizer.padding_side = "left"
+
 dataset_path = constants.DATA_DIR / "first-level" / file
 print("Loaded dataset")
 input_df = pd.read_csv(dataset_path)
@@ -110,7 +114,10 @@ else :
     for i in tqdm(range(0, len(prompts), batch_size)):
         batch_prompts = prompts[i:i + batch_size]
         inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
-        inputs = {k: v.to(model.device) for k, v in inputs.items()}  # careful move
+        inputs = {
+            k: v.to(dtype=model.dtype, device=model.device) if v.dtype.is_floating_point else v.to(device=model.device)
+            for k, v in inputs.items()
+        }
         with torch.no_grad():
 
             # This works for Llama-4, but not for Phi-4 !!!!
@@ -122,10 +129,13 @@ else :
                     output_scores=True,
                     do_sample=False,   # deterministic, no sampling
                 )
-
-                # generation_output.scores is a list of tensors, one per generated token
-                # since we only generate 1 new token, take the first (and only) item
                 scores = generation_output.scores[0]  # shape: [batch_size, vocab_size]
+                # with autocast('cuda', dtype=model.dtype):
+                #     outputs = model(**inputs)  # get raw logits
+                #     logits = outputs.logits  # shape: [batch_size, seq_len, vocab_size]
+
+                #     # Get logits at the last position (the next token the model would predict)
+                #     scores = logits[:, -1, :]  # shape: [batch_size, vocab_size]
 
             # This works for Phi-4  
             elif model_name == 'Phi4' :
@@ -149,6 +159,7 @@ else :
             soft_yes_list.extend(soft_targets[:, 0].tolist())
             soft_no_list.extend(soft_targets[:, 1].tolist())
             predicted_list.extend(['yes' if p else 'no' for p in preds])
+            torch.cuda.empty_cache()
 
     input_df['logit_yes'] = logit_yes_list
     input_df['logit_no'] = logit_no_list
