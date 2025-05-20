@@ -33,7 +33,10 @@ def parse_datasets(cfg: dict, data_path: Path) -> tuple[DataLoader, DataLoader, 
         if set_type == "train":
             loader_train = load_data(cfg=dataset, data_path=data_path)
         elif set_type == "val":
-            loader_val = load_data(cfg=dataset, data_path=data_path)
+            if dataset.get("name", None) is not None :
+                loader_val = load_data(cfg=dataset, data_path=data_path)
+            else :
+                loader_val = None
         elif set_type == "test":
             loader_test = load_data(cfg=dataset, data_path=data_path)
         else:

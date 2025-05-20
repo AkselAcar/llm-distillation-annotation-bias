@@ -1,5 +1,5 @@
 import argparse
-from model import DistilBertDistiller, DistilBertBaseline
+from model import Llama4Baseline, DistilBertBaseline, DistilBertDistiller
 from utils import read_yml
 import constants
 import os
@@ -20,7 +20,8 @@ def main(args: argparse.Namespace):
     model_cfg = cfg.get("model", {})
 
     model = DistilBertBaseline(device=constants.DEVICE) if args.baseline else DistilBertDistiller(device=constants.DEVICE)
-
+    # model = Llama4Baseline()
+    # model = getattr(model, model_cfg.get("name", {}))(device=constants.DEVICE)
     datasets_path = args.datasets_path
 
     datasets_cfg = cfg.get("datasets", {})

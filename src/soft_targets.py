@@ -50,7 +50,7 @@ yes_token_id = tokenizer("yes", add_special_tokens=False)["input_ids"][0]
 no_token_id = tokenizer("no", add_special_tokens=False)["input_ids"][0]
 
 # Reduce batch size if OOM occurs
-batch_size = 8  # Adjusted to lower value
+batch_size = constants.BATCH_SIZE
 
 logit_yes_list = []
 logit_no_list = []
