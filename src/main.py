@@ -1,11 +1,12 @@
 import argparse
 from model import Llama4Baseline, DistilBertBaseline, DistilBertDistiller
-from utils import read_yml
+from utils import read_yml, plot_metric
 import constants
 import os
 from dataloader import parse_datasets
 from datetime import datetime
 import pandas as pd
+import numpy as np
 
 def main(args: argparse.Namespace):
     """Define the main function to run the project.
@@ -19,7 +20,7 @@ def main(args: argparse.Namespace):
     cfg = read_yml(cfg_file)
     model_cfg = cfg.get("model", {})
 
-    model = DistilBertBaseline(device=constants.DEVICE) if args.baseline else DistilBertDistiller(device=constants.DEVICE)
+    
     # model = Llama4Baseline()
     # model = getattr(model, model_cfg.get("name", {}))(device=constants.DEVICE)
     datasets_path = args.datasets_path
@@ -29,21 +30,38 @@ def main(args: argparse.Namespace):
                                                            data_path=datasets_path)
 
     print("Training model...")
+    train_loss_list, val_acc_list, val_f1_list = [],[],[]
     if not args.baseline : # Train the model if not baseline
-        model.fit(
-            loader_train,
-            loader_val,
-            epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
-            lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
-            batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
-            temperature=model_cfg.get("temperature", constants.TEMPERATURE),
-            alpha=model_cfg.get("alpha", constants.ALPHA),
-            optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
-            criterion=model_cfg.get("criterion", constants.CRITERION)
-        )
+        # Get alpha value from config
+        alpha_cfg = model_cfg.get("alpha", {})
+        start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
+        alpha_values = np.arange(start,stop+step/2,step)
+        for alpha in alpha_values :
+            model = DistilBertDistiller(device=constants.DEVICE)
+            train_loss, val_acc, val_f1 = model.fit(
+                loader_train,
+                loader_val,
+                epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
+                lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
+                batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
+                temperature=model_cfg.get("temperature", constants.TEMPERATURE),
+                alpha=alpha,
+                optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
+                criterion=model_cfg.get("criterion", constants.CRITERION)
+            )
+            train_loss_list.append(train_loss)
+            val_acc_list.append(val_acc)
+            val_f1_list.append(val_f1)
 
-    # Evaluate on test data and save the results
-    acc, f1 = model.evaluate(loader=loader_test)
+    plot_metric(train_loss_list, "Train Loss", alpha_values, 
+                constants.OUTPUTS_DIR / "train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")
+    plot_metric(val_acc_list, "Validation Accuracy", alpha_values, 
+                constants.OUTPUTS_DIR / "val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")
+    plot_metric(val_f1_list, "Validation F1 Score", alpha_values, 
+                constants.OUTPUTS_DIR / "val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")    
+    
+    # Evaluate on test data and save the results    
+    acc, f1 = model.evaluate(loader=loader_test)    
 
     # Put the configuration, results and run_id in a .csv file
     end_time = datetime.now()

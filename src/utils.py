@@ -4,6 +4,7 @@ import torch
 from torch import Tensor
 from torch.optim import Optimizer
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 def read_yml(cfg_file: str) -> dict:
     """Read a yaml configuration file.
@@ -60,3 +61,14 @@ def get_optimizer(
         return torch.optim.SGD(parameters, lr=learning_rate)
     else:
         raise ValueError(f"Optimizer {optimizer_name} not recognized.")
+    
+
+def plot_metric(metric_values, metric_name, alpha_values, filename):
+    plt.figure()
+    plt.plot(alpha_values, metric_values, marker='o')
+    plt.title(f'{metric_name} vs Alpha')
+    plt.xlabel('Alpha')
+    plt.ylabel(metric_name)
+    plt.grid(True)
+    plt.savefig(filename)
+    plt.close()

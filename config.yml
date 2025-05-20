@@ -1,5 +1,4 @@
 ---
-teacher: "Phi4"
 
 # Data
 datasets:
@@ -26,7 +25,7 @@ datasets:
 
 # Model
 model:
-  name: Llama4Baseline
+  name: DistilBertDistiller
   n_epochs: 50
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
@@ -34,4 +33,7 @@ model:
   learning_rate: 0.001
   batch_size: 32
   temperature: 2.0
-  alpha: 0.3 # Parameter for weighted loss in distilled LF
+  alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
+    start: 0
+    stop: 1
+    step: 0.1 

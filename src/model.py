@@ -67,9 +67,11 @@ class DistilBertDistiller:
         # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         # if val_dataset:
         #     val_loader = DataLoader(val_dataset, batch_size=batch_size)
-        self.model.train()
+        
+        train_loss, val_acc, val_f1 = [], [], []
 
         for epoch in range(epochs):
+            self.model.train()
 
             total_loss = 0
             for batch in train_dataset:
@@ -89,9 +91,16 @@ class DistilBertDistiller:
 
             avg_loss = total_loss / len(train_dataset)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
+            train_loss.append(avg_loss)
 
             if val_dataset:
-                self.evaluate(val_dataset)
+                acc, f1 = self.evaluate(val_dataset)
+                val_acc.append(acc)
+                val_f1.append(f1)
+        
+        return train_loss, val_acc, val_f1
+                
+            
 
     def evaluate(self, loader):
         self.model.eval()
