@@ -23,8 +23,8 @@ DEVICE = torch.device(
     else "mps" if torch.mps.is_available() else "cpu"
 )
 
-N_EPOCHS = 50
-BATCH_SIZE = 8
+N_EPOCHS = 20
+BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
 NUM_WORKERS = 4
 TEMPERATURE = 2.0
