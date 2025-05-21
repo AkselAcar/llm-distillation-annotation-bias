@@ -112,7 +112,7 @@ class DistilBertDistiller:
                 teacher_preds = teacher_soft.argmax(dim=1)
 
             for text, s_pred, t_pred, soft in zip(original_texts, student_preds, teacher_preds, teacher_soft):
-                if s_pred != t_pred:
+                if s_pred.item() != t_pred.item():
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
 
@@ -128,7 +128,7 @@ class DistilBertDistiller:
                 p_teacher_preds = p_teacher_soft.argmax(dim=1)
 
             for text, s_pred, t_pred, soft in zip(paraphrased_texts, p_student_preds, p_teacher_preds, p_teacher_soft):
-                if s_pred != t_pred:
+                if s_pred.item() != t_pred.item():
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
 
