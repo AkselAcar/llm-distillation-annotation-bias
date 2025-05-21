@@ -1,6 +1,6 @@
 import argparse
 from model import Llama4Baseline, DistilBertBaseline, DistilBertDistiller
-from utils import read_yml, plot_metric_over_epochs
+from utils import read_yml, plot_metric_over_epochs, save_metric_to_csv
 import constants
 import os
 from dataloader import parse_datasets
@@ -72,6 +72,13 @@ def main(args: argparse.Namespace):
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
 
+    save_metric_to_csv(train_loss_arr, 
+                       constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+    save_metric_to_csv(val_acc_arr, 
+                       constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+    save_metric_to_csv(val_f1_arr, 
+                       constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv")) 
+    
     plot_metric_over_epochs(val_acc_list, "Validation Accuracy", alpha_values, 
                 constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
     plot_metric_over_epochs(val_f1_list, "Validation F1 Score", alpha_values, 
