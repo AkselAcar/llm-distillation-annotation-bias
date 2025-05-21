@@ -22,7 +22,7 @@ class HateSpeechDataset(Dataset):
         self.texts = texts
         self.hard_labels = hard_labels
         self.soft_targets = soft_targets  # shape: (num_samples, num_classes)
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        self.tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
         self.max_len = max_len
 
     def __len__(self):

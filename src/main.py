@@ -1,12 +1,13 @@
 import argparse
 from model import Llama4Baseline, DistilBertBaseline, DistilBertDistiller
-from utils import read_yml, plot_metric_over_epochs
+from utils import read_yml, plot_metric_over_epochs, save_metric_to_csv
 import constants
 import os
 from dataloader import parse_datasets
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import torch
 
 def main(args: argparse.Namespace):
     """Define the main function to run the project.
@@ -49,10 +50,22 @@ def main(args: argparse.Namespace):
                 optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
                 criterion=model_cfg.get("criterion", constants.CRITERION)
             )
+            torch.save(model.model.state_dict(), f"model_{alpha*10}.pth")
             train_loss_list.append(train_loss)
             val_acc_list.append(val_acc)
             val_f1_list.append(val_f1)
+            
+    train_loss_arr = np.array(train_loss_list)
+    val_acc_arr = np.array(train_loss_list)
+    val_f1_arr = np.array(train_loss_list)   
 
+    save_metric_to_csv(train_loss_arr, 
+                       constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+    save_metric_to_csv(val_acc_arr, 
+                       constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+    save_metric_to_csv(val_f1_arr, 
+                       constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv")) 
+    
     plot_metric_over_epochs(train_loss_list, "Train Loss", alpha_values, 
                 constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
     plot_metric_over_epochs(val_acc_list, "Validation Accuracy", alpha_values, 
