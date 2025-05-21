@@ -7,6 +7,8 @@ from dataloader import parse_datasets
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 
 def main(args: argparse.Namespace):
     """Define the main function to run the project.
@@ -29,32 +31,47 @@ def main(args: argparse.Namespace):
     loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
                                                            data_path=datasets_path)
 
-    print("Training model...")
+    print("Training model with DAgger + DaD...")
     train_loss_list, val_acc_list, val_f1_list = [],[],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
         alpha_values = np.arange(start,stop+step/2,step)
+
+        teacher_tokenizer = AutoTokenizer.from_pretrained(constants.model_path, padding_side="left", local_files_only=True)
+        teacher_model = AutoModelForCausalLM.from_pretrained(
+            constants.model_path,
+            device_map="auto",
+            torch_dtype=torch.float16,  # Load model in half-precision
+            local_files_only=True
+        )
         for alpha in alpha_values :
             model = DistilBertDistiller(device=constants.DEVICE)
-            train_loss, val_acc, val_f1 = model.fit(
-                loader_train,
-                loader_val,
-                epochs=model_cfg.get("n_epochs", constants.N_EPOCHS),
-                lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
-                batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
-                temperature=model_cfg.get("temperature", constants.TEMPERATURE),
-                alpha=alpha,
-                optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
-                criterion=model_cfg.get("criterion", constants.CRITERION)
-            )
-            train_loss_list.append(train_loss)
-            val_acc_list.append(val_acc)
-            val_f1_list.append(val_f1)
+            n_outer_iterations = model_cfg.get("dagger_outer_loops", 3)
+            epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
-    plot_metric_over_epochs(train_loss_list, "Train Loss", alpha_values, 
-                constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+            for iteration in range(n_outer_iterations):
+                print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===")
+                model.fit(
+                    loader_train,
+                    loader_val,
+                    epochs=epochs_per_step,
+                    lr=model_cfg.get("learning_rate", constants.LEARNING_RATE),
+                    batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE),
+                    temperature=model_cfg.get("temperature", constants.TEMPERATURE),
+                    alpha=alpha,
+                    optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
+                    criterion=model_cfg.get("criterion", constants.CRITERION)
+                )
+                model.learn_from_student_errors(
+                    train_loader=loader_train, teacher_model=teacher_model, n_variants=2
+                )
+
+                acc, f1 = model.evaluate(loader=loader_val)
+                val_acc_list.append(acc)
+                val_f1_list.append(f1)
+
     plot_metric_over_epochs(val_acc_list, "Validation Accuracy", alpha_values, 
                 constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
     plot_metric_over_epochs(val_f1_list, "Validation F1 Score", alpha_values, 
@@ -66,7 +83,9 @@ def main(args: argparse.Namespace):
     # Put the configuration, results and run_id in a .csv file
     end_time = datetime.now()
     out_dict = {'Start' : start_time.strftime('%d/%m/%y %H:%M:%S'),
-                'End' : end_time.strftime('%d/%m/%y %H:%M:%S'), 'Accuracy' : acc, 'F1' : f1}
+                'End' : end_time.strftime('%d/%m/%y %H:%M:%S'),
+                'Accuracy' : acc,
+                'F1' : f1}
     # Add model config
     out_dict.update(model_cfg)
     # Add dataset config

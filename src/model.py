@@ -8,7 +8,7 @@ import accelerate
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 from sklearn.metrics import accuracy_score, f1_score
 from utils import get_criterion, get_optimizer
 import constants
@@ -51,6 +51,90 @@ class DistilBertDistiller:
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model.to(self.device)
 
+        # Paraphrase model setup
+        self.paraphrase_tokenizer = AutoTokenizer.from_pretrained("Vamsi/T5_Paraphrase_Paws")
+        self.paraphrase_model = AutoModelForSeq2SeqLM.from_pretrained("Vamsi/T5_Paraphrase_Paws").to(self.device)
+
+    def generate_paraphrases(self, texts, n_variants=1, max_length=128):
+        paraphrased_texts = []
+        for text in texts:
+            input_text = f"paraphrase: {text} </s>"
+            encoding = self.paraphrase_tokenizer.encode_plus(
+                input_text,
+                max_length=max_length,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt"
+            ).to(self.device)
+
+            with torch.no_grad():
+                generated_ids = self.paraphrase_model.generate(
+                    input_ids=encoding["input_ids"],
+                    attention_mask=encoding["attention_mask"],
+                    num_beams=5,
+                    num_return_sequences=n_variants,
+                    temperature=1.5,
+                    top_k=120,
+                    top_p=0.95,
+                    max_length=max_length,
+                    early_stopping=True
+                )
+
+            for gen_id in generated_ids:
+                paraphrase = self.paraphrase_tokenizer.decode(gen_id, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+                paraphrased_texts.append(paraphrase)
+
+        return paraphrased_texts
+
+    def learn_from_student_errors(self, train_loader, teacher_model, n_variants=1):
+        print("Applying combined DAgger and DaD correction...")
+        new_texts, new_soft_targets = [], []
+
+        for batch in train_loader:
+            original_texts = list(batch['text'])
+
+            # DAgger: evaluate student on original data
+            inputs = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
+            with torch.no_grad():
+                student_outputs = self.model(**inputs).logits
+                student_preds = student_outputs.argmax(dim=1).cpu()
+
+                teacher_outputs = teacher_model(**inputs).logits
+                teacher_soft = F.softmax(teacher_outputs, dim=-1).cpu()
+                teacher_preds = teacher_soft.argmax(dim=1)
+
+            for text, s_pred, t_pred, soft in zip(original_texts, student_preds, teacher_preds, teacher_soft):
+                if s_pred != t_pred:
+                    new_texts.append(text)
+                    new_soft_targets.append(soft.tolist())
+
+            # DaD: generate paraphrases
+            paraphrased_texts = self.generate_paraphrases(original_texts, n_variants=n_variants)
+            p_inputs = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
+            with torch.no_grad():
+                p_student_outputs = self.model(**p_inputs).logits
+                p_student_preds = p_student_outputs.argmax(dim=1).cpu()
+
+                p_teacher_outputs = teacher_model(**p_inputs).logits
+                p_teacher_soft = F.softmax(p_teacher_outputs, dim=-1).cpu()
+                p_teacher_preds = p_teacher_soft.argmax(dim=1)
+
+            for text, s_pred, t_pred, soft in zip(paraphrased_texts, p_student_preds, p_teacher_preds, p_teacher_soft):
+                if s_pred != t_pred:
+                    new_texts.append(text)
+                    new_soft_targets.append(soft.tolist())
+
+        if new_texts:
+            print(f"Combined: Adding {len(new_texts)} examples to the training set.")
+            extended_dataset = HateSpeechDataset(
+                texts=new_texts,
+                hard_labels=[1 if t[0] > t[1] else 0 for t in new_soft_targets],
+                soft_targets=new_soft_targets
+            )
+            train_loader.dataset.texts += extended_dataset.texts
+            train_loader.dataset.hard_labels += extended_dataset.hard_labels
+            train_loader.dataset.soft_targets += extended_dataset.soft_targets
+
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
 
         soft_teacher = nn.functional.softmax(teacher_logits / temperature, dim=1)
@@ -58,23 +142,20 @@ class DistilBertDistiller:
         ce_loss = nn.CrossEntropyLoss()(student_logits, hard_labels)
         return alpha * distil_loss + (1 - alpha) * ce_loss
 
-    def fit(self, train_dataset, val_dataset=None, epochs=constants.N_EPOCHS,
+    def fit(self, train_loader, val_loader=None, epochs=constants.N_EPOCHS,
             lr=constants.LEARNING_RATE, batch_size=constants.BATCH_SIZE, 
             temperature=constants.TEMPERATURE, alpha=constants.ALPHA,
             optimizer=constants.OPTIMIZER, criterion=constants.CRITERION):
         self.optimizer = get_optimizer(optimizer, self.model.parameters(), lr)
         self.criterion = get_criterion(criterion)
-        # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        # if val_dataset:
-        #     val_loader = DataLoader(val_dataset, batch_size=batch_size)
-        
+
         train_loss, val_acc, val_f1 = [], [], []
 
         for epoch in range(epochs):
             self.model.train()
 
             total_loss = 0
-            for batch in train_dataset:
+            for batch in train_loader:
                 self.optimizer.zero_grad()
                 input_ids = batch['input_ids'].to(self.device)
                 attention_mask = batch['attention_mask'].to(self.device)
@@ -89,16 +170,11 @@ class DistilBertDistiller:
                 self.optimizer.step()
                 total_loss += loss.item()
 
-            avg_loss = total_loss / len(train_dataset)
+            avg_loss = total_loss / len(train_loader)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
-            train_loss.append(avg_loss)
 
-            if val_dataset:
-                acc, f1 = self.evaluate(val_dataset)
-                val_acc.append(acc)
-                val_f1.append(f1)
-        
-        return train_loss, val_acc, val_f1
+            if val_loader:
+                self.evaluate(val_loader)
                 
             
 
