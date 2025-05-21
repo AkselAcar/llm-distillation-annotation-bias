@@ -1,6 +1,6 @@
 import argparse
 from model import Llama4Baseline, DistilBertBaseline, DistilBertDistiller
-from utils import read_yml, plot_metric
+from utils import read_yml, plot_metric_over_epochs
 import constants
 import os
 from dataloader import parse_datasets
@@ -53,12 +53,12 @@ def main(args: argparse.Namespace):
             val_acc_list.append(val_acc)
             val_f1_list.append(val_f1)
 
-    plot_metric(train_loss_list, "Train Loss", alpha_values, 
-                constants.OUTPUTS_DIR / "train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")
-    plot_metric(val_acc_list, "Validation Accuracy", alpha_values, 
-                constants.OUTPUTS_DIR / "val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")
-    plot_metric(val_f1_list, "Validation F1 Score", alpha_values, 
-                constants.OUTPUTS_DIR / "val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png")    
+    plot_metric_over_epochs(train_loss_list, "Train Loss", alpha_values, 
+                constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+    plot_metric_over_epochs(val_acc_list, "Validation Accuracy", alpha_values, 
+                constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+    plot_metric_over_epochs(val_f1_list, "Validation F1 Score", alpha_values, 
+                constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))    
     
     # Evaluate on test data and save the results    
     acc, f1 = model.evaluate(loader=loader_test)    

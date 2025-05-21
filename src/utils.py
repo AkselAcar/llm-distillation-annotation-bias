@@ -5,6 +5,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import numpy as np
 
 def read_yml(cfg_file: str) -> dict:
     """Read a yaml configuration file.
@@ -63,12 +64,17 @@ def get_optimizer(
         raise ValueError(f"Optimizer {optimizer_name} not recognized.")
     
 
-def plot_metric(metric_values, metric_name, alpha_values, filename):
+def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
+    epochs = len(metric_array[0])
+    print('EPOCHS', epochs)
+
     plt.figure()
-    plt.plot(alpha_values, metric_values, marker='o')
-    plt.title(f'{metric_name} vs Alpha')
-    plt.xlabel('Alpha')
+    for i, alpha in enumerate(alpha_values):
+        plt.plot(np.arange(epochs), metric_array[i], label=rf'$\alpha=${alpha:.2f}')
+    plt.title(f'{metric_name} over Epochs')
+    plt.xlabel('Epoch')
     plt.ylabel(metric_name)
+    plt.legend()
     plt.grid(True)
     plt.savefig(filename)
     plt.close()
