@@ -42,7 +42,7 @@ def main(args: argparse.Namespace):
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
         alpha_values = [0.5] #np.arange(start,stop+step/2,step)
-
+        print("Alpha values: ", alpha_values)
         teacher_tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="left", local_files_only=True)
         teacher_model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -50,7 +50,9 @@ def main(args: argparse.Namespace):
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
         )
+        print("Teacher model loaded")
         for alpha in alpha_values :
+            print("Alpha: ", alpha)
             model = DistilBertDistiller(device=constants.DEVICE)
             n_outer_iterations = model_cfg.get("dagger_outer_loops", 3)
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)

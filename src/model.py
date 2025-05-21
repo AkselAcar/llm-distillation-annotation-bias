@@ -50,11 +50,11 @@ class DistilBertDistiller:
         self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model.to(self.device)
-
+        print("done 1")
         # Paraphrase model setup
         self.paraphrase_tokenizer = T5Tokenizer.from_pretrained("Vamsi/T5_Paraphrase_Paws")
         self.paraphrase_model = AutoModelForSeq2SeqLM.from_pretrained("Vamsi/T5_Paraphrase_Paws").to(self.device)
-
+        print("done 2")
     def generate_paraphrases(self, texts, n_variants=1, max_length=128):
         paraphrased_texts = []
         for text in texts:
