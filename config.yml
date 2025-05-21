@@ -5,7 +5,7 @@ datasets:
 -
   set: "train"
   name: 'Llama4_DGHD_train.csv'
-  split: [0, 0,8]
+  split: [0, 0.2]
   shuffle: True
   num_workers: 4
 
@@ -26,13 +26,13 @@ datasets:
 # Model
 model:
   name: DistilBertDistiller
-  n_epochs: 50
+  n_epochs: 2
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
   learning_rate: 0.001
   batch_size: 32
-  temperature: 2.0
+  temperature: 0.5
   alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
     start: 0
     stop: 1
