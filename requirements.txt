@@ -7,6 +7,7 @@
 evaluate==0.4.3
 sentence-transformers
 nltk==3.9.1
+sentencepiece
 
 # Hugging Face datasets and libraries
 # datasets 
