@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+from dotenv import load_dotenv
+load_dotenv()
 
 def main(args: argparse.Namespace):
     """Define the main function to run the project.
@@ -26,6 +28,8 @@ def main(args: argparse.Namespace):
     # model = Llama4Baseline()
     # model = getattr(model, model_cfg.get("name", {}))(device=constants.DEVICE)
     datasets_path = args.datasets_path
+    model_path = os.getenv("LLAMA4_PATH_SCRATCH")
+
 
     datasets_cfg = cfg.get("datasets", {})
     loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
@@ -37,11 +41,11 @@ def main(args: argparse.Namespace):
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
-        alpha_values = np.arange(start,stop+step/2,step)
+        alpha_values = [0.5] #np.arange(start,stop+step/2,step)
 
-        teacher_tokenizer = AutoTokenizer.from_pretrained(constants.model_path, padding_side="left", local_files_only=True)
+        teacher_tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="left", local_files_only=True)
         teacher_model = AutoModelForCausalLM.from_pretrained(
-            constants.model_path,
+            model_path,
             device_map="auto",
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
@@ -72,8 +76,9 @@ def main(args: argparse.Namespace):
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
 
-    save_metric_to_csv(train_loss_arr, 
-                       constants.OUTPUTS_DIR / str("train_loss_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+    val_acc_arr = np.array(train_loss_list)
+    val_f1_arr = np.array(train_loss_list)   
+
     save_metric_to_csv(val_acc_arr, 
                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
     save_metric_to_csv(val_f1_arr, 

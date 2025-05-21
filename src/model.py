@@ -8,7 +8,7 @@ import accelerate
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5Tokenizer
 from sklearn.metrics import accuracy_score, f1_score
 from utils import get_criterion, get_optimizer
 import constants
@@ -52,7 +52,7 @@ class DistilBertDistiller:
         self.model.to(self.device)
 
         # Paraphrase model setup
-        self.paraphrase_tokenizer = AutoTokenizer.from_pretrained("Vamsi/T5_Paraphrase_Paws")
+        self.paraphrase_tokenizer = T5Tokenizer.from_pretrained("Vamsi/T5_Paraphrase_Paws")
         self.paraphrase_model = AutoModelForSeq2SeqLM.from_pretrained("Vamsi/T5_Paraphrase_Paws").to(self.device)
 
     def generate_paraphrases(self, texts, n_variants=1, max_length=128):
