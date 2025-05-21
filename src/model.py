@@ -7,6 +7,7 @@ to keep the representation quite compact.
 import accelerate
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5Tokenizer
 from sklearn.metrics import accuracy_score, f1_score
@@ -89,15 +90,19 @@ class DistilBertDistiller:
 
         return paraphrased_texts
 
-    def learn_from_student_errors(self, train_loader, teacher_model, n_variants=1):
+    def learn_from_student_errors(self, train_loader, teacher_model, n_variants=1, batch_size=16):
         print("Applying combined DAgger and DaD correction...")
         new_texts, new_soft_targets = [], []
+        dataset = train_loader.dataset
+        all_texts = dataset.texts
 
-        for batch in train_loader:
-            original_texts = list(batch['text'])
-
-            # DAgger: evaluate student on original data
-            inputs = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
+        for idx_start in range(0, len(all_texts), batch_size):
+            original_texts = all_texts[idx_start: idx_start + batch_size]
+            if isinstance(original_texts, str):
+                original_texts = [original_texts]
+            # DAgger: predictions sur les originaux
+            inputs = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
             with torch.no_grad():
                 student_outputs = self.model(**inputs).logits
                 student_preds = student_outputs.argmax(dim=1).cpu()
@@ -111,7 +116,7 @@ class DistilBertDistiller:
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
 
-            # DaD: generate paraphrases
+            # DaD: paraphrases et correction
             paraphrased_texts = self.generate_paraphrases(original_texts, n_variants=n_variants)
             p_inputs = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
             with torch.no_grad():
@@ -134,9 +139,10 @@ class DistilBertDistiller:
                 hard_labels=[1 if t[0] > t[1] else 0 for t in new_soft_targets],
                 soft_targets=new_soft_targets
             )
-            train_loader.dataset.texts += extended_dataset.texts
-            train_loader.dataset.hard_labels += extended_dataset.hard_labels
-            train_loader.dataset.soft_targets += extended_dataset.soft_targets
+            dataset.texts += extended_dataset.texts
+            dataset.hard_labels += extended_dataset.hard_labels
+            dataset.soft_targets += extended_dataset.soft_targets
+
 
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
 
