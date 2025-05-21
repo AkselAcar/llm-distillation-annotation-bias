@@ -90,24 +90,27 @@ class DistilBertDistiller:
 
         return paraphrased_texts
 
-    def learn_from_student_errors(self, train_loader, teacher_model, n_variants=1, batch_size=16):
+    def learn_from_student_errors(self, train_loader, teacher_model, teacher_tokenizer, n_variants=1, batch_size=16):
         print("Applying combined DAgger and DaD correction...")
         new_texts, new_soft_targets = [], []
         dataset = train_loader.dataset
         all_texts = dataset.texts
 
         for idx_start in range(0, len(all_texts), batch_size):
-            original_texts = all_texts[idx_start: idx_start + batch_size]
-            if isinstance(original_texts, str):
-                original_texts = [original_texts]
+            original_texts = all_texts[idx_start: idx_start + batch_size].tolist()
             # DAgger: predictions sur les originaux
-            inputs = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            inputs_student = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
+            inputs_student = {k: v.to(self.device) for k, v in inputs_student.items()}
+
+            # Tokenization pour le teacher
+            inputs_teacher = self.teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
+            inputs_teacher = {k: v.to(self.device) for k, v in inputs_teacher.items()}
+
             with torch.no_grad():
-                student_outputs = self.model(**inputs).logits
+                student_outputs = self.model(**inputs_student).logits
                 student_preds = student_outputs.argmax(dim=1).cpu()
 
-                teacher_outputs = teacher_model(**inputs).logits
+                teacher_outputs = teacher_model(**inputs_teacher).logits
                 teacher_soft = F.softmax(teacher_outputs, dim=-1).cpu()
                 teacher_preds = teacher_soft.argmax(dim=1)
 

@@ -43,7 +43,12 @@ def main(args: argparse.Namespace):
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
         alpha_values = [0.5] #np.arange(start,stop+step/2,step)
         print("Alpha values: ", alpha_values)
-        #teacher_tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="left", local_files_only=True)
+        
+        teacher_tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            padding_side="left",
+            local_files_only=True
+        )
         teacher_model = AutoModelForCausalLM.from_pretrained(
             model_path,
             device_map="auto",
@@ -71,7 +76,7 @@ def main(args: argparse.Namespace):
                     criterion=model_cfg.get("criterion", constants.CRITERION)
                 )
                 model.learn_from_student_errors(
-                    train_loader=loader_train, teacher_model=teacher_model, n_variants=1, batch_size=constants.BATCH_SIZE
+                    train_loader=loader_train, teacher_model=teacher_model, teacher_tokenizer=teacher_tokenizer, n_variants=1, batch_size=constants.BATCH_SIZE
                 )
 
                 acc, f1 = model.evaluate(loader=loader_val)
