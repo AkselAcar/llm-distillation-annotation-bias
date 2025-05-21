@@ -8,7 +8,7 @@ import accelerate
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModelForCausalLM
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AutoTokenizer, AutoModel
 from sklearn.metrics import accuracy_score, f1_score
 from utils import get_criterion, get_optimizer
 import constants
@@ -16,13 +16,16 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+tokenizer_path = os.path.abspath('../distilbert_files/tokenizer')
+model_path = os.path.abspath('../distilbert_files/model')
+
 # Custom dataset class
 class HateSpeechDataset(Dataset):
     def __init__(self, texts, hard_labels, soft_targets, max_len=128):
         self.texts = texts
         self.hard_labels = hard_labels
         self.soft_targets = soft_targets  # shape: (num_samples, num_classes)
-        self.tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, local_files_only=True)
         self.max_len = max_len
 
     def __len__(self):
@@ -47,8 +50,8 @@ class HateSpeechDataset(Dataset):
 class DistilBertDistiller:
     def __init__(self, num_labels=2, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device # Note : no need to have more than one GPU for this
-        self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        self.model = AutoModel.from_pretrained(model_path, num_labels=num_labels, local_files_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, local_files_only=True)
         self.model.to(self.device)
 
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
