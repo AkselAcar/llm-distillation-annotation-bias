@@ -4,14 +4,14 @@
 datasets:
 -
   set: "train"
-  name: 'Llama4_DGHD_train.csv'
-  split: [0, 0.2]
+  name: 'Llama4_Dataset_1.csv'
+  split: [0, 0,8]
   shuffle: True
   num_workers: 4
 
 -
   set: "val"
-  name: 'Llama4_DGHD_train.csv'
+  name: 'Llama4_Dataset_1.csv'
   split: [0.8, 1]
   shuffle: False
   num_workers: 4
@@ -36,4 +36,5 @@ model:
   alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
     start: 0
     stop: 1
-    step: 0.1 
+    step: 0.1
+  dagger_outer_loops: 1
