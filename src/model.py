@@ -100,14 +100,14 @@ class DistilBertDistiller:
             inputs_student = {k: v.to(self.device) for k, v in inputs_student.items()}
 
             # Tokenization pour le teacher
-            inputs_teacher = self.teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
+            inputs_teacher = teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_teacher = {k: v.to(self.device) for k, v in inputs_teacher.items()}
 
             with torch.no_grad():
                 student_outputs = self.model(**inputs_student).logits
                 student_preds = student_outputs.argmax(dim=1).cpu()
-
-                teacher_outputs = teacher_model(**inputs_teacher).logits
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):  
+                    teacher_outputs = teacher_model(**inputs_teacher).logits
                 teacher_soft = F.softmax(teacher_outputs, dim=-1).cpu()
                 teacher_preds = teacher_soft.argmax(dim=1)
 
