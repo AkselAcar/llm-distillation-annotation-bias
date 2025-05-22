@@ -89,12 +89,13 @@ class DistilBertDistiller:
 
     def learn_from_student_errors(self, train_loader, teacher_model, teacher_tokenizer, n_variants=1, batch_size=16):
         print("Applying combined DAgger and DaD correction...")
-        new_texts, new_soft_targets = [], []
+        new_texts, new_soft_targets, texts_to_paraphrase = [], [], []
         dataset = train_loader.dataset
         all_texts = dataset.texts
 
         for idx_start in range(0, len(all_texts), batch_size):
             original_texts = all_texts[idx_start: idx_start + batch_size].tolist()
+            batch_hard_labels = dataset.hard_labels[idx_start: idx_start + batch_size].tolist()
             # DAgger: predictions sur les originaux
             inputs_student = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_student = {k: v.to(self.device) for k, v in inputs_student.items()}
@@ -117,13 +118,14 @@ class DistilBertDistiller:
                 teacher_soft = F.softmax(logits_last, dim=-1)  # (batch_size, 2)
                 teacher_preds = teacher_soft.argmax(dim=1)
 
-            for text, s_pred, t_pred, soft in zip(original_texts, student_preds, teacher_preds, teacher_soft):
-                if s_pred.item() != t_pred.item():
+            for text, s_pred, t_pred, soft, hard in zip(original_texts, student_preds, teacher_preds, teacher_soft, batch_hard_labels):
+                if s_pred.item() != t_pred.item() and t_pred.item() == hard: # specificity for us : teacher not so good
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
+                    texts_to_paraphrase.append(text)
 
             # DaD: paraphrases et correction
-            paraphrased_texts = self.generate_paraphrases(original_texts, n_variants=n_variants)
+            paraphrased_texts = self.generate_paraphrases(texts_to_paraphrase, n_variants=n_variants)
             # Tokenize pour le student
             p_inputs_student = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
             p_inputs_student = {k: v.to(self.device) for k, v in p_inputs_student.items()}
