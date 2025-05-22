@@ -59,7 +59,7 @@ class DistilBertDistiller:
     def generate_paraphrases(self, texts, n_variants=1, max_length=128):
         paraphrased_texts = []
         for text in texts:
-            input_text = f"paraphrase: {text} </s>"
+            input_text = f"paraphrase: {text}"
             encoding = self.paraphrase_tokenizer.encode_plus(
                 input_text,
                 max_length=max_length,
@@ -74,9 +74,9 @@ class DistilBertDistiller:
                     attention_mask=encoding["attention_mask"],
                     num_beams=5,
                     num_return_sequences=n_variants,
-                    temperature=1.5,
-                    top_k=120,
-                    top_p=0.95,
+                    #temperature=1.5,
+                    #top_k=120,
+                    #top_p=0.95,
                     max_length=max_length,
                     early_stopping=True
                 )
@@ -107,8 +107,14 @@ class DistilBertDistiller:
                 student_outputs = self.model(**inputs_student).logits
                 student_preds = student_outputs.argmax(dim=1).cpu()
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16):  
-                    teacher_outputs = teacher_model(**inputs_teacher).logits
-                teacher_soft = F.softmax(teacher_outputs, dim=-1).cpu()
+                    #teacher_outputs = teacher_model(**inputs_teacher).logits
+                    logits = teacher_model(**inputs_teacher).logits  # (batch_size, seq_len, vocab_size)
+                yes_token_id = teacher_tokenizer("yes", add_special_tokens=False)["input_ids"][0]
+                no_token_id = teacher_tokenizer("no", add_special_tokens=False)["input_ids"][0]
+                # Prend les logits du dernier token généré (comme dans ta génération de soft targets)
+                logits_last = logits[:, -1, [yes_token_id, no_token_id]]  # (batch_size, 2)
+
+                teacher_soft = F.softmax(logits_last, dim=-1)  # (batch_size, 2)
                 teacher_preds = teacher_soft.argmax(dim=1)
 
             for text, s_pred, t_pred, soft in zip(original_texts, student_preds, teacher_preds, teacher_soft):
@@ -118,13 +124,20 @@ class DistilBertDistiller:
 
             # DaD: paraphrases et correction
             paraphrased_texts = self.generate_paraphrases(original_texts, n_variants=n_variants)
-            p_inputs = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
+            # Tokenize pour le student
+            p_inputs_student = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
+            p_inputs_student = {k: v.to(self.device) for k, v in p_inputs_student.items()}
+
+            # Tokenize pour le teacher
+            p_inputs_teacher = teacher_tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
+            p_inputs_teacher = {k: v.to(self.device) for k, v in p_inputs_teacher.items()}
             with torch.no_grad():
-                p_student_outputs = self.model(**p_inputs).logits
+                p_student_outputs = self.model(**p_inputs_student).logits
                 p_student_preds = p_student_outputs.argmax(dim=1).cpu()
 
-                p_teacher_outputs = teacher_model(**p_inputs).logits
-                p_teacher_soft = F.softmax(p_teacher_outputs, dim=-1).cpu()
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    p_teacher_outputs = teacher_model(**p_inputs_teacher).logits
+                p_teacher_soft = F.softmax(p_teacher_outputs[:, -1, [yes_token_id, no_token_id]], dim=-1).cpu()
                 p_teacher_preds = p_teacher_soft.argmax(dim=1)
 
             for text, s_pred, t_pred, soft in zip(paraphrased_texts, p_student_preds, p_teacher_preds, p_teacher_soft):
