@@ -83,6 +83,8 @@ class DistilBertDistiller:
             for gen_id in generated_ids:
                 paraphrase = self.paraphrase_tokenizer.decode(gen_id, skip_special_tokens=True, clean_up_tokenization_spaces=True)
                 paraphrased_texts.append(paraphrase)
+            
+            del generated_ids
 
         return paraphrased_texts
 
@@ -173,10 +175,12 @@ class DistilBertDistiller:
             dataset.texts = list(dataset.texts)
             dataset.hard_labels = list(dataset.hard_labels)
             dataset.soft_targets = list(dataset.soft_targets)
-            
+
             dataset.texts += extended_dataset.texts
             dataset.hard_labels += extended_dataset.hard_labels
             dataset.soft_targets += extended_dataset.soft_targets
+
+            del extended_dataset
 
 
     def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
@@ -218,8 +222,10 @@ class DistilBertDistiller:
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
             if val_loader:
-                self.evaluate(val_loader)
-                
+                acc, f1 = self.evaluate(val_loader)
+                val_acc.append(acc)
+                val_f1.append(f1)   
+        return train_loss, val_acc, val_f1
             
 
     def evaluate(self, loader):
