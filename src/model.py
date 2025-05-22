@@ -99,8 +99,11 @@ class DistilBertDistiller:
             inputs_student = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_student = {k: v.to(self.device) for k, v in inputs_student.items()}
 
+            prompt_template = "Is the following tweet hate speech (answer only with 'yes' or 'no'). Tweet: {}"
+            prompted_original_texts = [prompt_template.format(text) for text in original_texts]
+            inputs_teacher = teacher_tokenizer(prompted_original_texts, padding=True, truncation=True, return_tensors='pt')
+
             # Tokenization pour le teacher
-            inputs_teacher = teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_teacher = {k: v.to(self.device) for k, v in inputs_teacher.items()}
 
             with torch.no_grad():
@@ -136,8 +139,10 @@ class DistilBertDistiller:
             p_inputs_student = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
             p_inputs_student = {k: v.to(self.device) for k, v in p_inputs_student.items()}
 
+            paraphrased_texts = self.generate_paraphrases(texts_to_paraphrase, n_variants=n_variants)
+            prompted_paraphrased = [prompt_template.format(text) for text in paraphrased_texts]
+            p_inputs_teacher = teacher_tokenizer(prompted_paraphrased, padding=True, truncation=True, return_tensors='pt')
             # Tokenize pour le teacher
-            p_inputs_teacher = teacher_tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
             p_inputs_teacher = {k: v.to(self.device) for k, v in p_inputs_teacher.items()}
             with torch.no_grad():
                 p_student_outputs = self.model(**p_inputs_student).logits
@@ -165,6 +170,10 @@ class DistilBertDistiller:
                 hard_labels=[1 if t[0] > t[1] else 0 for t in new_soft_targets],
                 soft_targets=new_soft_targets
             )
+            dataset.texts = list(dataset.texts)
+            dataset.hard_labels = list(dataset.hard_labels)
+            dataset.soft_targets = list(dataset.soft_targets)
+            
             dataset.texts += extended_dataset.texts
             dataset.hard_labels += extended_dataset.hard_labels
             dataset.soft_targets += extended_dataset.soft_targets

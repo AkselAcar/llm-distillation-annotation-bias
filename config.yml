@@ -4,14 +4,14 @@
 datasets:
 -
   set: "train"
-  name: 'Llama4_Dataset_1.csv'
+  name: 'Llama4_Dataset_1_reduced.csv'
   split: [0, 0,8]
   shuffle: True
   num_workers: 4
 
 -
   set: "val"
-  name: 'Llama4_Dataset_1.csv'
+  name: 'Llama4_Dataset_1_reduced.csv'
   split: [0.8, 1]
   shuffle: False
   num_workers: 4
@@ -31,7 +31,7 @@ model:
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
   learning_rate: 0.001
-  batch_size: 32
+  batch_size: 64
   temperature: 0.5
   alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
     start: 0
