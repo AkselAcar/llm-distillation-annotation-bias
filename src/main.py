@@ -75,7 +75,9 @@ def main(args: argparse.Namespace):
                     criterion=model_cfg.get("criterion", constants.CRITERION)
                 )
                 model.learn_from_student_errors(
-                    train_loader=loader_train, teacher_model=teacher_model, teacher_tokenizer=teacher_tokenizer, n_variants=1, batch_size=constants.BATCH_SIZE
+                    train_loader=loader_train, teacher_model=teacher_model, 
+                    teacher_tokenizer=teacher_tokenizer, n_variants=1, 
+                    batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE)
                 )
 
                 acc, f1 = model.evaluate(loader=loader_val)
