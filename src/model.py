@@ -117,12 +117,16 @@ class DistilBertDistiller:
 
                 teacher_soft = F.softmax(logits_last, dim=-1)  # (batch_size, 2)
                 teacher_preds = teacher_soft.argmax(dim=1)
+   
 
             for text, s_pred, t_pred, soft, hard in zip(original_texts, student_preds, teacher_preds, teacher_soft, batch_hard_labels):
                 if s_pred.item() != t_pred.item() and t_pred.item() == hard: # specificity for us : teacher not so good
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
                     texts_to_paraphrase.append(text)
+            # Free some memory space
+            del student_outputs, student_preds, logits, logits_last, teacher_soft, teacher_preds
+            torch.cuda.empty_cache() 
 
             # DaD: paraphrases et correction
             paraphrased_texts = self.generate_paraphrases(texts_to_paraphrase, n_variants=n_variants)
@@ -146,6 +150,9 @@ class DistilBertDistiller:
                 if s_pred.item() != t_pred.item():
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
+            # Free some memory space
+            del p_student_outputs, p_student_preds, p_teacher_outputs, p_teacher_soft, p_teacher_preds
+            torch.cuda.empty_cache()
 
         if new_texts:
             print(f"Combined: Adding {len(new_texts)} examples to the training set.")
