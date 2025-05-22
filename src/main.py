@@ -84,8 +84,8 @@ def main(args: argparse.Namespace):
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
 
-    val_acc_arr = np.array(train_loss_list)
-    val_f1_arr = np.array(train_loss_list)   
+    val_acc_arr = np.array(val_acc_list)
+    val_f1_arr = np.array(val_f1_list)   
 
     save_metric_to_csv(val_acc_arr, 
                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
