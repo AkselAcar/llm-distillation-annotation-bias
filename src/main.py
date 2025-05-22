@@ -74,11 +74,12 @@ def main(args: argparse.Namespace):
                     optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
                     criterion=model_cfg.get("criterion", constants.CRITERION)
                 )
-                model.learn_from_student_errors(
-                    train_loader=loader_train, teacher_model=teacher_model, 
-                    teacher_tokenizer=teacher_tokenizer, n_variants=1, 
-                    batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE)
-                )
+                if cfg.get("special_training", {}) :
+                    model.learn_from_student_errors(
+                        train_loader=loader_train, teacher_model=teacher_model, 
+                        teacher_tokenizer=teacher_tokenizer, n_variants=1, 
+                        batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE)
+                    )
 
                 acc, f1 = model.evaluate(loader=loader_val)
                 val_acc_list.append(acc)

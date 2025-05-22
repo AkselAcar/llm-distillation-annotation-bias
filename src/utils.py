@@ -66,7 +66,10 @@ def get_optimizer(
     
 
 def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
-    epochs = len(metric_array[0])
+    try:
+        epochs = len(metric_array[0])
+    except TypeError:
+        epochs = len(metric_array)
     print('EPOCHS', epochs)
 
     plt.figure()
@@ -81,5 +84,5 @@ def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
     plt.close()
 
 def save_metric_to_csv(metric_array, filename):
-    df = pd.DataFrame(metric_array, columns=np.arange(metric_array.shape[1]))
+    df = pd.DataFrame(metric_array)
     df.to_csv(filename, index=False)
