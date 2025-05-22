@@ -51,15 +51,14 @@ class DistilBertDistiller:
         self.model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=num_labels)
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model.to(self.device)
-        print("done 1")
         # Paraphrase model setup
         self.paraphrase_tokenizer = T5Tokenizer.from_pretrained("Vamsi/T5_Paraphrase_Paws")
         self.paraphrase_model = AutoModelForSeq2SeqLM.from_pretrained("Vamsi/T5_Paraphrase_Paws").to(self.device)
-        print("done 2")
+
     def generate_paraphrases(self, texts, n_variants=1, max_length=128):
         paraphrased_texts = []
         for text in texts:
-            input_text = f"paraphrase: {text} </s>"
+            input_text = f"paraphrase: {text}"
             encoding = self.paraphrase_tokenizer.encode_plus(
                 input_text,
                 max_length=max_length,
@@ -74,9 +73,9 @@ class DistilBertDistiller:
                     attention_mask=encoding["attention_mask"],
                     num_beams=5,
                     num_return_sequences=n_variants,
-                    temperature=1.5,
-                    top_k=120,
-                    top_p=0.95,
+                    #temperature=1.5,
+                    #top_k=120,
+                    #top_p=0.95,
                     max_length=max_length,
                     early_stopping=True
                 )
@@ -88,52 +87,79 @@ class DistilBertDistiller:
         return paraphrased_texts
 
     def learn_from_student_errors(self, train_loader, teacher_model, teacher_tokenizer, n_variants=1, batch_size=16):
-        print("Applying combined DAgger and DaD correction...")
-        new_texts, new_soft_targets = [], []
+        print("Applying combined DAgger and DaD correction...", flush=True)
+        new_texts, new_soft_targets, texts_to_paraphrase = [], [], []
         dataset = train_loader.dataset
         all_texts = dataset.texts
-
         for idx_start in range(0, len(all_texts), batch_size):
+            print(f"Processing batch {idx_start // batch_size + 1} / {len(all_texts) // batch_size + 1}", flush=True)
             original_texts = all_texts[idx_start: idx_start + batch_size].tolist()
+            batch_hard_labels = dataset.hard_labels[idx_start: idx_start + batch_size].tolist()
             # DAgger: predictions sur les originaux
             inputs_student = self.tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_student = {k: v.to(self.device) for k, v in inputs_student.items()}
 
             # Tokenization pour le teacher
-            inputs_teacher = self.teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
+            inputs_teacher = teacher_tokenizer(original_texts, padding=True, truncation=True, return_tensors='pt')
             inputs_teacher = {k: v.to(self.device) for k, v in inputs_teacher.items()}
 
             with torch.no_grad():
                 student_outputs = self.model(**inputs_student).logits
+                print("student outputs done", flush=True)
                 student_preds = student_outputs.argmax(dim=1).cpu()
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):  
+                    #teacher_outputs = teacher_model(**inputs_teacher).logits
+                    logits = teacher_model(**inputs_teacher).logits  # (batch_size, seq_len, vocab_size)
+                    print("teacher outputs done", flush=True)
+                yes_token_id = teacher_tokenizer("yes", add_special_tokens=False)["input_ids"][0]
+                no_token_id = teacher_tokenizer("no", add_special_tokens=False)["input_ids"][0]
+                # Prend les logits du dernier token généré (comme dans ta génération de soft targets)
+                logits_last = logits[:, -1, [yes_token_id, no_token_id]]  # (batch_size, 2)
 
-                teacher_outputs = teacher_model(**inputs_teacher).logits
-                teacher_soft = F.softmax(teacher_outputs, dim=-1).cpu()
+                teacher_soft = F.softmax(logits_last, dim=-1)  # (batch_size, 2)
                 teacher_preds = teacher_soft.argmax(dim=1)
+   
 
-            for text, s_pred, t_pred, soft in zip(original_texts, student_preds, teacher_preds, teacher_soft):
-                if s_pred != t_pred:
+            for text, s_pred, t_pred, soft, hard in zip(original_texts, student_preds, teacher_preds, teacher_soft, batch_hard_labels):
+                if s_pred.item() != t_pred.item() and t_pred.item() == hard: # specificity for us : teacher not so good
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
+                    texts_to_paraphrase.append(text)
+            # Free some memory space
+            del student_outputs, student_preds, logits, logits_last, teacher_soft, teacher_preds
+            torch.cuda.empty_cache() 
 
             # DaD: paraphrases et correction
-            paraphrased_texts = self.generate_paraphrases(original_texts, n_variants=n_variants)
-            p_inputs = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt').to(self.device)
-            with torch.no_grad():
-                p_student_outputs = self.model(**p_inputs).logits
-                p_student_preds = p_student_outputs.argmax(dim=1).cpu()
+            paraphrased_texts = self.generate_paraphrases(texts_to_paraphrase, n_variants=n_variants)
+            print("paraphrases done", flush=True)
+            # Tokenize pour le student
+            p_inputs_student = self.tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
+            p_inputs_student = {k: v.to(self.device) for k, v in p_inputs_student.items()}
 
-                p_teacher_outputs = teacher_model(**p_inputs).logits
-                p_teacher_soft = F.softmax(p_teacher_outputs, dim=-1).cpu()
+            # Tokenize pour le teacher
+            p_inputs_teacher = teacher_tokenizer(paraphrased_texts, padding=True, truncation=True, return_tensors='pt')
+            p_inputs_teacher = {k: v.to(self.device) for k, v in p_inputs_teacher.items()}
+            with torch.no_grad():
+                p_student_outputs = self.model(**p_inputs_student).logits
+                p_student_preds = p_student_outputs.argmax(dim=1).cpu()
+                print("student outputs paraphrase done", flush=True)
+
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    p_teacher_outputs = teacher_model(**p_inputs_teacher).logits
+                    print("teacher outputs paraphrase done", flush=True)
+                p_teacher_soft = F.softmax(p_teacher_outputs[:, -1, [yes_token_id, no_token_id]], dim=-1).cpu()
                 p_teacher_preds = p_teacher_soft.argmax(dim=1)
 
             for text, s_pred, t_pred, soft in zip(paraphrased_texts, p_student_preds, p_teacher_preds, p_teacher_soft):
-                if s_pred != t_pred:
+                if s_pred.item() != t_pred.item():
                     new_texts.append(text)
                     new_soft_targets.append(soft.tolist())
+            # Free some memory space
+            del p_student_outputs, p_student_preds, p_teacher_outputs, p_teacher_soft, p_teacher_preds
+            torch.cuda.empty_cache()
 
         if new_texts:
-            print(f"Combined: Adding {len(new_texts)} examples to the training set.")
+            print(f"Combined: Adding {len(new_texts)} examples to the training set.", flush=True)
             extended_dataset = HateSpeechDataset(
                 texts=new_texts,
                 hard_labels=[1 if t[0] > t[1] else 0 for t in new_soft_targets],

@@ -35,7 +35,6 @@ def main(args: argparse.Namespace):
     loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
                                                            data_path=datasets_path)
 
-    print("Training model with DAgger + DaD...")
     train_loss_list, val_acc_list, val_f1_list = [],[],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
@@ -55,15 +54,15 @@ def main(args: argparse.Namespace):
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
         )
-        print("Teacher model loaded")
+        print("Teacher model loaded", flush=True)
         for alpha in alpha_values :
-            print("Alpha: ", alpha)
+            print("Alpha: ", alpha, flush=True)
             model = DistilBertDistiller(device=constants.DEVICE)
             n_outer_iterations = model_cfg.get("dagger_outer_loops", 3)
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
             for iteration in range(n_outer_iterations):
-                print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===")
+                print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
                 model.fit(
                     loader_train,
                     loader_val,
