@@ -39,7 +39,6 @@ def main(args: argparse.Namespace):
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
         alpha_values = np.arange(start,stop+step/2,step) #alpha_values = [0.3]
-        alpha_values = [0.5]
         print("Alpha values: ", alpha_values)
         
         # Add memory optimization hooks
@@ -146,9 +145,11 @@ def main(args: argparse.Namespace):
         val_f1_arr = np.array(val_f1_list_total_all_alphas)   
 
         save_metric_to_csv(val_acc_arr, 
-                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
+                        alpha_values)
         save_metric_to_csv(val_f1_arr, 
-                        constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv")) 
+                        constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
+                        alpha_values) 
         
         plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", alpha_values, 
                     constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))

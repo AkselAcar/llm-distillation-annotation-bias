@@ -71,11 +71,11 @@ def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
     try:
         epochs = len(metric_array[0])
         for i, alpha in enumerate(alpha_values):
-            plt.plot(np.arange(epochs), metric_array[i], label=rf'$\alpha=${alpha:.2f}')
+            plt.plot(np.arange(1,epochs+1), metric_array[i], label=rf'$\alpha=${alpha:.2f}')
     except TypeError:
         epochs = len(metric_array)
         for i, alpha in enumerate(alpha_values):
-            plt.plot(np.arange(epochs), metric_array, label=rf'$\alpha=${alpha:.2f}')
+            plt.plot(np.arange(1,epochs+1), metric_array, label=rf'$\alpha=${alpha:.2f}')
 
     plt.title(f'{metric_name} over Epochs')
     plt.xlabel('Epoch')
@@ -85,6 +85,9 @@ def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
     plt.savefig(filename)
     plt.close()
 
-def save_metric_to_csv(metric_array, filename):
-    df = pd.DataFrame(metric_array)
-    df.to_csv(filename, index=False, header=False)
+def save_metric_to_csv(metric_array, filename, alpha_values):
+    df = pd.DataFrame(metric_array.T)
+    alpha_names = [f"alpha_{int(alpha * 100):02d}" for alpha in alpha_values]
+    df.columns = alpha_names
+    df.index.name = "Epoch"
+    df.to_csv(filename)
