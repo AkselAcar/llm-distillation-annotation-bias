@@ -87,4 +87,4 @@ def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
 
 def save_metric_to_csv(metric_array, filename):
     df = pd.DataFrame(metric_array)
-    df.to_csv(filename, index=False)
+    df.to_csv(filename, index=False, header=False)

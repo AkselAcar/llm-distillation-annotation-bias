@@ -23,7 +23,6 @@ def main(args: argparse.Namespace):
     cfg_file = args.cfg
     cfg = read_yml(cfg_file)
     model_cfg = cfg.get("model", {})
-
     
     # model = Llama4Baseline()
     # model = getattr(model, model_cfg.get("name", {}))(device=constants.DEVICE)
@@ -32,7 +31,7 @@ def main(args: argparse.Namespace):
 
 
     datasets_cfg = cfg.get("datasets", {})
-    loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
+    loader_train, loader_val, loader_tests = parse_datasets(cfg=datasets_cfg,
                                                            data_path=datasets_path,
                                                            batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE))
 
@@ -111,7 +110,7 @@ def main(args: argparse.Namespace):
                 constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
     plot_metric_over_epochs(val_f1_list, "Validation F1 Score", alpha_values, 
                 constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))    
-    
+    """
     # Evaluate on test data and save the results    
     acc, f1 = model.evaluate(loader=loader_test)    
 
@@ -131,6 +130,31 @@ def main(args: argparse.Namespace):
     file_path = constants.OUTPUTS_DIR / "logs.csv"
     file_exists = os.path.isfile(file_path)
     out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
+    """
+    file_path = constants.OUTPUTS_DIR / "logs.csv"
+    file_exists = os.path.isfile(file_path)
+    for test_name, test_loader in loader_tests.items():
+        acc, f1 = model.evaluate(loader=test_loader)
+        end_time = datetime.now()
+        out_dict = {
+            'Start': start_time.strftime('%d/%m/%y %H:%M:%S'),
+            'End': end_time.strftime('%d/%m/%y %H:%M:%S'),
+            'Accuracy': acc,
+            'F1': f1,
+            'TestSet': test_name
+        }
+        out_dict["special_training"] = cfg.get("special_training", {})
+        out_dict.update(model_cfg)
+        #out_dict.update({dataset['set'] + "[split]": dataset['name'] + str(dataset['split']) for dataset in datasets_cfg})
+        out_dict.update({
+            dataset['set'] + "[split]": dataset['name'] + str(dataset['split'])
+            for dataset in datasets_cfg
+            if dataset['set'] in {"train", "val", test_name}
+        })
+        print(out_dict)
+        out_df = pd.DataFrame([out_dict])
+        out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
+        file_exists = True
 
 if __name__ == "__main__":
 

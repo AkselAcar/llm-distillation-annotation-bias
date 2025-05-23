@@ -1,25 +1,32 @@
 ---
-special_training: True
+special_training: False
 
 # Data
 datasets:
 -
   set: "train"
   name: 'Llama4_DGHD_train_mini.csv'
-  split: [0, 0.8]
+  split: [0, 0.1]
   shuffle: True
   num_workers: 0
 
 -
   set: "val"
   name: 'Llama4_DGHD_train_mini.csv'
-  split: [0.8, 1]
+  split: [0.1, 1]
   shuffle: False
   num_workers: 0
 
 -
-  set: "test" # Possible to add another test set instead of just splitting
+  set: "test1" # Possible to add another test set instead of just splitting
   name: 'Llama4_DGHD_test.csv'
+  split: [0, 1]
+  shuffle: False
+  num_workers: 0
+
+-
+  set: "test2" # Possible to add another test set instead of just splitting
+  name: 'Llama4_Dataset_1.csv'
   split: [0, 1]
   shuffle: False
   num_workers: 0
@@ -27,7 +34,7 @@ datasets:
 # Model
 model:
   name: DistilBertDistiller
-  n_epochs: 15
+  n_epochs: 1
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
