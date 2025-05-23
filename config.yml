@@ -1,40 +1,41 @@
 ---
+special_training: True
 
 # Data
 datasets:
 -
   set: "train"
-  name: 'Llama4_Dataset_1.csv'
-  split: [0, 0,8]
+  name: 'Llama4_DGHD_train.csv'
+  split: [0, 0.8]
   shuffle: True
-  num_workers: 4
+  num_workers: 0
 
 -
   set: "val"
-  name: 'Llama4_Dataset_1.csv'
+  name: 'Llama4_DGHD_test.csv'
   split: [0.8, 1]
   shuffle: False
-  num_workers: 4
+  num_workers: 0
 
 -
   set: "test" # Possible to add another test set instead of just splitting
   name: 'Llama4_DGHD_test.csv'
   split: [0, 1]
   shuffle: False
-  num_workers: 4
+  num_workers: 0
 
 # Model
 model:
   name: DistilBertDistiller
-  n_epochs: 2
+  n_epochs: 15
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
   learning_rate: 0.001
-  batch_size: 32
-  temperature: 0.5
+  batch_size: 64
+  temperature: 1.0
   alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
     start: 0
     stop: 1
     step: 0.1
-  dagger_outer_loops: 1
+  dagger_outer_loops: 3

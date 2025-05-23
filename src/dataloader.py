@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 
 
-def parse_datasets(cfg: dict, data_path: Path) -> tuple[DataLoader, DataLoader, DataLoader]:
+def parse_datasets(cfg: dict, data_path: Path, batch_size: int) -> tuple[DataLoader, DataLoader, DataLoader]:
     """Parse the datasets from the configuration file.
 
     Args:
@@ -31,19 +31,19 @@ def parse_datasets(cfg: dict, data_path: Path) -> tuple[DataLoader, DataLoader, 
         dataset = cfg[i]
         set_type = dataset.get("set", None)
         if set_type == "train":
-            loader_train = load_data(cfg=dataset, data_path=data_path)
+            loader_train = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
         elif set_type == "val":
             if dataset.get("name", None) is not None :
-                loader_val = load_data(cfg=dataset, data_path=data_path)
+                loader_val = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
             else :
                 loader_val = None
         elif set_type == "test":
-            loader_test = load_data(cfg=dataset, data_path=data_path)
+            loader_test = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
         else:
             raise ValueError(f"Unknown dataset type: {set_type}")
     return loader_train, loader_val, loader_test
 
-def load_data(cfg: dict, data_path: Path) -> DataLoader:
+def load_data(cfg: dict, data_path: Path, batch_size: int) -> DataLoader:
     """Load the data from the path and return a DataLoader.
 
     Args:
@@ -76,7 +76,6 @@ def load_data(cfg: dict, data_path: Path) -> DataLoader:
         df = df.iloc[start:end]
 
     # Get additional parameters
-    batch_size = cfg.get("batch_size", constants.BATCH_SIZE)
     shuffle = cfg.get("shuffle", True)
 
     # Create dataset

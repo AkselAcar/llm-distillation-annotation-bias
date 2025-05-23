@@ -33,14 +33,15 @@ def main(args: argparse.Namespace):
 
     datasets_cfg = cfg.get("datasets", {})
     loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
-                                                           data_path=datasets_path)
+                                                           data_path=datasets_path,
+                                                           batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE))
 
     train_loss_list, val_acc_list, val_f1_list = [],[],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
-        alpha_values = [0.5] #np.arange(start,stop+step/2,step)
+        alpha_values = [0.3] #np.arange(start,stop+step/2,step)
         print("Alpha values: ", alpha_values)
         
         teacher_tokenizer = AutoTokenizer.from_pretrained(
@@ -54,6 +55,12 @@ def main(args: argparse.Namespace):
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
         )
+        # Add memory optimization hooks
+        def teacher_model_cleanup():
+            for module in teacher_model.modules():
+                if hasattr(module, '_hf_hook'):
+                    module._hf_hook.pre_forward(module)
+                    module._hf_hook.post_forward(module, torch.Tensor())
         print("Teacher model loaded", flush=True)
         for alpha in alpha_values :
             print("Alpha: ", alpha, flush=True)
@@ -62,6 +69,7 @@ def main(args: argparse.Namespace):
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
             for iteration in range(n_outer_iterations):
+
                 print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
                 model.fit(
                     loader_train,
@@ -74,16 +82,23 @@ def main(args: argparse.Namespace):
                     optimizer=model_cfg.get("optimizer", constants.OPTIMIZER),
                     criterion=model_cfg.get("criterion", constants.CRITERION)
                 )
-                model.learn_from_student_errors(
-                    train_loader=loader_train, teacher_model=teacher_model, teacher_tokenizer=teacher_tokenizer, n_variants=1, batch_size=constants.BATCH_SIZE
-                )
+                if cfg.get("special_training", {}) :
+                    model.learn_from_student_errors(
+                        train_loader=loader_train, teacher_model=teacher_model, 
+                        teacher_tokenizer=teacher_tokenizer, n_variants=1, 
+                        batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE)
+                    )
 
                 acc, f1 = model.evaluate(loader=loader_val)
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
 
-    val_acc_arr = np.array(train_loss_list)
-    val_f1_arr = np.array(train_loss_list)   
+                torch.save(model.model.state_dict(), constants.CHECKPOINT_DIR / f"model_{iteration}.pth")
+                teacher_model_cleanup()
+                torch.cuda.empty_cache()
+                
+    val_acc_arr = np.array(val_acc_list)
+    val_f1_arr = np.array(val_f1_list)   
 
     save_metric_to_csv(val_acc_arr, 
                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
