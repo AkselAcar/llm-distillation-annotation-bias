@@ -6,6 +6,7 @@ import torch
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "data"
 OUTPUTS_DIR = DATA_DIR / "outputs"
+CHECKPOINT_DIR = ROOT_DIR / "model_checkpoints"
 
 if not DATA_DIR.exists():
     DATA_DIR.mkdir(parents=True, exist_ok=True)

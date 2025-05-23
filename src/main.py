@@ -33,14 +33,15 @@ def main(args: argparse.Namespace):
 
     datasets_cfg = cfg.get("datasets", {})
     loader_train, loader_val, loader_test = parse_datasets(cfg=datasets_cfg,
-                                                           data_path=datasets_path)
+                                                           data_path=datasets_path,
+                                                           batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE))
 
     train_loss_list, val_acc_list, val_f1_list = [],[],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
-        alpha_values = [0.5] #np.arange(start,stop+step/2,step)
+        alpha_values = [0.3] #np.arange(start,stop+step/2,step)
         print("Alpha values: ", alpha_values)
         
         teacher_tokenizer = AutoTokenizer.from_pretrained(
@@ -68,8 +69,7 @@ def main(args: argparse.Namespace):
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
             for iteration in range(n_outer_iterations):
-                teacher_model_cleanup()
-                torch.cuda.empty_cache()
+
                 print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
                 model.fit(
                     loader_train,
@@ -93,9 +93,10 @@ def main(args: argparse.Namespace):
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
 
+                torch.save(model.model.state_dict(), constants.CHECKPOINT_DIR / f"model_{iteration}.pth")
                 teacher_model_cleanup()
                 torch.cuda.empty_cache()
-
+                
     val_acc_arr = np.array(val_acc_list)
     val_f1_arr = np.array(val_f1_list)   
 
