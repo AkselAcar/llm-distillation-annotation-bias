@@ -66,15 +66,17 @@ def get_optimizer(
     
 
 def plot_metric_over_epochs(metric_array, metric_name, alpha_values, filename):
-    try:
-        epochs = len(metric_array[0])
-    except TypeError:
-        epochs = len(metric_array)
-    print('EPOCHS', epochs)
 
     plt.figure()
-    for i, alpha in enumerate(alpha_values):
-        plt.plot(np.arange(epochs), metric_array[i], label=rf'$\alpha=${alpha:.2f}')
+    try:
+        epochs = len(metric_array[0])
+        for i, alpha in enumerate(alpha_values):
+            plt.plot(np.arange(epochs), metric_array[i], label=rf'$\alpha=${alpha:.2f}')
+    except TypeError:
+        epochs = len(metric_array)
+        for i, alpha in enumerate(alpha_values):
+            plt.plot(np.arange(epochs), metric_array, label=rf'$\alpha=${alpha:.2f}')
+
     plt.title(f'{metric_name} over Epochs')
     plt.xlabel('Epoch')
     plt.ylabel(metric_name)
