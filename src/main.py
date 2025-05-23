@@ -68,10 +68,11 @@ def main(args: argparse.Namespace):
             n_outer_iterations = model_cfg.get("dagger_outer_loops", 3)
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
+            val_acc_list_total, val_f1_list_total = [], []
             for iteration in range(n_outer_iterations):
-
+                val_acc_list, val_f1_list = [], []
                 print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
-                model.fit(
+                val_acc_list, val_f1_list = model.fit(
                     loader_train,
                     loader_val,
                     epochs=epochs_per_step,
@@ -89,16 +90,17 @@ def main(args: argparse.Namespace):
                         batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE)
                     )
 
-                acc, f1 = model.evaluate(loader=loader_val)
-                val_acc_list.append(acc)
-                val_f1_list.append(f1)
+                #acc, f1 = model.evaluate(loader=loader_val) #useless
+                val_acc_list_total.extend(val_acc_list)
+                val_f1_list_total.extend(val_f1_list)
+                #print(f"Validation Accuracy: {val_acc:.4f}, Validation F1: {val_f1:.4f}", flush=True)
 
                 torch.save(model.model.state_dict(), constants.CHECKPOINT_DIR / f"model_{iteration}.pth")
                 teacher_model_cleanup()
                 torch.cuda.empty_cache()
                 
-    val_acc_arr = np.array(val_acc_list)
-    val_f1_arr = np.array(val_f1_list)   
+    val_acc_arr = np.array(val_acc_list_total)
+    val_f1_arr = np.array(val_f1_list_total)   
 
     save_metric_to_csv(val_acc_arr, 
                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))

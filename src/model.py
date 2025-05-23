@@ -309,7 +309,7 @@ class DistilBertDistiller:
             
         return
 
-    def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=2.0, alpha=0.5):
+    def distillation_loss(self, student_logits, teacher_logits, hard_labels, temperature=1.0, alpha=0.5):
 
         soft_teacher = nn.functional.softmax(teacher_logits / temperature, dim=1)
         distil_loss = nn.CrossEntropyLoss()(student_logits/temperature, soft_teacher) * (temperature ** 2)
@@ -328,7 +328,7 @@ class DistilBertDistiller:
         torch.backends.cuda.enable_mem_efficient_sdp(True)
         torch.backends.cuda.enable_flash_sdp(True)
         
-        train_loss, val_acc, val_f1 = [], [], []
+        val_acc_list, val_f1_list = [], []
 
         for epoch in range(epochs):
             self.model.train()
@@ -353,10 +353,11 @@ class DistilBertDistiller:
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}", flush=True)
 
             if val_loader:
-                acc, f1 = self.evaluate(val_loader)
-                val_acc.append(acc)
-                val_f1.append(f1)   
-        return train_loss, val_acc, val_f1
+                val_acc, val_f1 = self.evaluate(val_loader)
+                val_acc_list.append(val_acc)
+                val_f1_list.append(val_f1)
+                print(f"validation results batch {epoch + 1}/{epochs}-- accuracy: {val_acc:.4f}, f1: {val_f1:.4f}", flush=True) 
+        return val_acc_list, val_f1_list
             
 
     def evaluate(self, loader):
@@ -377,7 +378,6 @@ class DistilBertDistiller:
 
         acc = accuracy_score(labels, preds)
         f1 = f1_score(labels, preds, average='macro')
-        print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}", flush=True)
         return acc, f1
     
 
