@@ -12,6 +12,8 @@ if not DATA_DIR.exists():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 if not OUTPUTS_DIR.exists():
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+if not CHECKPOINT_DIR.exists():
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 CFG_DIR = ROOT_DIR 
 
