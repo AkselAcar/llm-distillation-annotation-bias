@@ -1,19 +1,19 @@
 ---
-special_training: False
+special_training: True
 
 # Data
 datasets:
 -
   set: "train"
   name: 'Llama4_DGHD_train_mini.csv'
-  split: [0, 0.1]
+  split: [0, 0.8]
   shuffle: True
   num_workers: 0
 
 -
   set: "val"
   name: 'Llama4_DGHD_train_mini.csv'
-  split: [0.1, 1]
+  split: [0.8, 1]
   shuffle: False
   num_workers: 0
 
@@ -34,7 +34,7 @@ datasets:
 # Model
 model:
   name: DistilBertDistiller
-  n_epochs: 1
+  n_epochs: 15
   optimizer: "SGD"
   criterion: "BCEWithLogitsLoss"
   use_scheduler: True
@@ -45,4 +45,4 @@ model:
     start: 0
     stop: 1
     step: 0.1
-  dagger_outer_loops: 3
+  dagger_outer_loops: 5
