@@ -356,7 +356,7 @@ class DistilBertDistiller:
                 val_acc, val_f1 = self.evaluate(val_loader)
                 val_acc_list.append(val_acc)
                 val_f1_list.append(val_f1)
-                print(f"validation results batch {epoch + 1}/{epochs}-- accuracy: {val_acc:.4f}, f1: {val_f1:.4f}", flush=True) 
+                print(f"validation results epoch {epoch + 1}/{epochs}-- accuracy: {val_acc:.4f}, f1: {val_f1:.4f}", flush=True) 
         return val_acc_list, val_f1_list
             
 
