@@ -5,24 +5,24 @@ special_training: True
 datasets:
 -
   set: "train"
-  name: 'Llama4_Dataset_1.csv'
+  name: 'Llama4_Dataset_1_reduced.csv'
   split: [0, 0.8]
   shuffle: True
-  num_workers: 4
+  num_workers: 0
 
 -
   set: "val"
-  name: 'Llama4_Dataset_1.csv'
+  name: 'Llama4_Dataset_1_reduced.csv'
   split: [0.8, 1]
   shuffle: False
-  num_workers: 4
+  num_workers: 0
 
 -
   set: "test" # Possible to add another test set instead of just splitting
   name: 'Llama4_DGHD_test.csv'
   split: [0, 1]
   shuffle: False
-  num_workers: 4
+  num_workers: 0
 
 # Model
 model:

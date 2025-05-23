@@ -54,6 +54,12 @@ def main(args: argparse.Namespace):
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
         )
+        # Add memory optimization hooks
+        def teacher_model_cleanup():
+            for module in teacher_model.modules():
+                if hasattr(module, '_hf_hook'):
+                    module._hf_hook.pre_forward(module)
+                    module._hf_hook.post_forward(module, torch.Tensor())
         print("Teacher model loaded", flush=True)
         for alpha in alpha_values :
             print("Alpha: ", alpha, flush=True)
@@ -62,6 +68,8 @@ def main(args: argparse.Namespace):
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
             for iteration in range(n_outer_iterations):
+                teacher_model_cleanup()
+                torch.cuda.empty_cache()
                 print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
                 model.fit(
                     loader_train,
@@ -84,6 +92,9 @@ def main(args: argparse.Namespace):
                 acc, f1 = model.evaluate(loader=loader_val)
                 val_acc_list.append(acc)
                 val_f1_list.append(f1)
+
+                teacher_model_cleanup()
+                torch.cuda.empty_cache()
 
     val_acc_arr = np.array(val_acc_list)
     val_f1_arr = np.array(val_f1_list)   
