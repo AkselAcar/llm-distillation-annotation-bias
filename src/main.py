@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import gc
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -31,18 +32,23 @@ def main(args: argparse.Namespace):
 
 
     datasets_cfg = cfg.get("datasets", {})
-    loader_train, loader_val, loader_tests = parse_datasets(cfg=datasets_cfg,
-                                                           data_path=datasets_path,
-                                                           batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE))
 
-    train_loss_list, val_acc_list, val_f1_list = [],[],[]
+    val_acc_list, val_f1_list = [],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
-        alpha_values = [0.3] #np.arange(start,stop+step/2,step)
+        alpha_values = np.arange(start,stop+step/2,step) #alpha_values = [0.3]
+        alpha_values = [0.5]
         print("Alpha values: ", alpha_values)
         
+        # Add memory optimization hooks
+        def teacher_model_cleanup():
+            for module in teacher_model.modules():
+                if hasattr(module, '_hf_hook'):
+                    module._hf_hook.pre_forward(module)
+                    module._hf_hook.post_forward(module, torch.Tensor())
+
         teacher_tokenizer = AutoTokenizer.from_pretrained(
             model_path,
             padding_side="left",
@@ -54,20 +60,26 @@ def main(args: argparse.Namespace):
             torch_dtype=torch.float16,  # Load model in half-precision
             local_files_only=True
         )
-        # Add memory optimization hooks
-        def teacher_model_cleanup():
-            for module in teacher_model.modules():
-                if hasattr(module, '_hf_hook'):
-                    module._hf_hook.pre_forward(module)
-                    module._hf_hook.post_forward(module, torch.Tensor())
         print("Teacher model loaded", flush=True)
+
+        val_acc_list_total_all_alphas, val_f1_list_total_all_alphas = [], []
+
         for alpha in alpha_values :
             print("Alpha: ", alpha, flush=True)
-            model = DistilBertDistiller(device=constants.DEVICE)
+
+            loader_train, loader_val, loader_tests = parse_datasets(cfg=datasets_cfg,
+                                                        data_path=datasets_path,
+                                                        batch_size=model_cfg.get("batch_size", constants.BATCH_SIZE))
+
+            print(f"Train set size: {len(loader_train.dataset)}")
+            print(f"Val set size: {len(loader_val.dataset)}")
+
+            model = DistilBertDistiller(device=constants.DEVICE) # new model each time
+
             n_outer_iterations = model_cfg.get("dagger_outer_loops", 3)
             epochs_per_step = model_cfg.get("n_epochs", constants.N_EPOCHS)
 
-            val_acc_list_total, val_f1_list_total = [], []
+            val_acc_list_total_per_alpha, val_f1_list_total_per_alpha = [], []
             for iteration in range(n_outer_iterations):
                 val_acc_list, val_f1_list = [], []
                 print(f"=== Outer Step {iteration + 1}/{n_outer_iterations} ===", flush=True)
@@ -90,71 +102,59 @@ def main(args: argparse.Namespace):
                     )
 
                 #acc, f1 = model.evaluate(loader=loader_val) #useless
-                val_acc_list_total.extend(val_acc_list)
-                val_f1_list_total.extend(val_f1_list)
+                val_acc_list_total_per_alpha.extend(val_acc_list)
+                val_f1_list_total_per_alpha.extend(val_f1_list)
                 #print(f"Validation Accuracy: {val_acc:.4f}, Validation F1: {val_f1:.4f}", flush=True)
 
                 torch.save(model.model.state_dict(), constants.CHECKPOINT_DIR / f"model_{iteration}.pth")
-                teacher_model_cleanup()
+
                 torch.cuda.empty_cache()
+
+            val_acc_list_total_all_alphas.append(val_acc_list_total_per_alpha)
+            val_f1_list_total_all_alphas.append(val_f1_list_total_per_alpha)
+
+            file_path = constants.OUTPUTS_DIR / "logs.csv"
+            file_exists = os.path.isfile(file_path)
+            for test_name, test_loader in loader_tests.items():
+                acc, f1 = model.evaluate(loader=test_loader)
+                end_time = datetime.now()
+                out_dict = {
+                    'Start': start_time.strftime('%d/%m/%y %H:%M:%S'),
+                    'End': end_time.strftime('%d/%m/%y %H:%M:%S'),
+                    'Accuracy': acc,
+                    'F1': f1,
+                    'TestSet': test_name
+                }
+                out_dict["special_training"] = cfg.get("special_training", {})
+                out_dict.update(model_cfg)
+                #out_dict.update({dataset['set'] + "[split]": dataset['name'] + str(dataset['split']) for dataset in datasets_cfg})
+                out_dict.update({
+                    dataset['set'] + "[split]": dataset['name'] + str(dataset['split'])
+                    for dataset in datasets_cfg
+                    if dataset['set'] in {"train", "val", test_name}
+                })
+                print(out_dict)
+                out_df = pd.DataFrame([out_dict])
+                out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
+                file_exists = True
+
+            del model
+            gc.collect()
+            torch.cuda.empty_cache()
                 
-    val_acc_arr = np.array(val_acc_list_total)
-    val_f1_arr = np.array(val_f1_list_total)   
+        val_acc_arr = np.array(val_acc_list_total_all_alphas)
+        val_f1_arr = np.array(val_f1_list_total_all_alphas)   
 
-    save_metric_to_csv(val_acc_arr, 
-                       constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
-    save_metric_to_csv(val_f1_arr, 
-                       constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv")) 
-    
-    plot_metric_over_epochs(val_acc_list, "Validation Accuracy", alpha_values, 
-                constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
-    plot_metric_over_epochs(val_f1_list, "Validation F1 Score", alpha_values, 
-                constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))    
-    """
-    # Evaluate on test data and save the results    
-    acc, f1 = model.evaluate(loader=loader_test)    
-
-    # Put the configuration, results and run_id in a .csv file
-    end_time = datetime.now()
-    out_dict = {'Start' : start_time.strftime('%d/%m/%y %H:%M:%S'),
-                'End' : end_time.strftime('%d/%m/%y %H:%M:%S'),
-                'Accuracy' : acc,
-                'F1' : f1}
-    # Add model config
-    out_dict.update(model_cfg)
-    # Add dataset config
-    out_dict.update({dataset['set'] + "[split]": dataset['name'] + str(dataset['split']) for dataset in datasets_cfg})
-    print(out_dict)
-    # print("DATASET CONFIG", datasets_cfg)
-    out_df = pd.DataFrame([out_dict])
-    file_path = constants.OUTPUTS_DIR / "logs.csv"
-    file_exists = os.path.isfile(file_path)
-    out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
-    """
-    file_path = constants.OUTPUTS_DIR / "logs.csv"
-    file_exists = os.path.isfile(file_path)
-    for test_name, test_loader in loader_tests.items():
-        acc, f1 = model.evaluate(loader=test_loader)
-        end_time = datetime.now()
-        out_dict = {
-            'Start': start_time.strftime('%d/%m/%y %H:%M:%S'),
-            'End': end_time.strftime('%d/%m/%y %H:%M:%S'),
-            'Accuracy': acc,
-            'F1': f1,
-            'TestSet': test_name
-        }
-        out_dict["special_training"] = cfg.get("special_training", {})
-        out_dict.update(model_cfg)
-        #out_dict.update({dataset['set'] + "[split]": dataset['name'] + str(dataset['split']) for dataset in datasets_cfg})
-        out_dict.update({
-            dataset['set'] + "[split]": dataset['name'] + str(dataset['split'])
-            for dataset in datasets_cfg
-            if dataset['set'] in {"train", "val", test_name}
-        })
-        print(out_dict)
-        out_df = pd.DataFrame([out_dict])
-        out_df.to_csv(file_path, index=False, mode='a', header=not file_exists)
-        file_exists = True
+        save_metric_to_csv(val_acc_arr, 
+                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"))
+        save_metric_to_csv(val_f1_arr, 
+                        constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv")) 
+        
+        plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", alpha_values, 
+                    constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+        plot_metric_over_epochs(val_f1_list_total_all_alphas, "Validation F1 Score", alpha_values, 
+                    constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))   
+            
 
 if __name__ == "__main__":
 

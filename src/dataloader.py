@@ -96,6 +96,12 @@ def load_data(cfg: dict, data_path: Path, batch_size: int) -> DataLoader:
     dataset_file = os.path.join(file_path, cfg.get("name", None))
     df = pd.read_csv(dataset_file)
 
+    split = cfg.get("split", None)
+    if split is not None:
+        start = int(split[0] * len(df))
+        end = int(split[1] * len(df))
+        df = df.iloc[start:end]
+
     # Convert columns to Numpy arrays to use them as input of model generation
     texts = df['text'].to_numpy()
     hard_labels = df['y'].to_numpy()
@@ -104,7 +110,7 @@ def load_data(cfg: dict, data_path: Path, batch_size: int) -> DataLoader:
 
     # Shape when transposed : (N, 2) with N the number of entries in the dataset
     soft_targets = np.array([soft_targets_yes, soft_targets_no]).T
-
+    """
     # Get split to apply to the dataset (if any)
     split = cfg.get("split", None)
 
@@ -112,7 +118,7 @@ def load_data(cfg: dict, data_path: Path, batch_size: int) -> DataLoader:
         start = int(split[0] * len(df))
         end = int(split[1] * len(df))
         df = df.iloc[start:end]
-
+    """
     # Get additional parameters
     shuffle = cfg.get("shuffle", True)
 
