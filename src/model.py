@@ -350,7 +350,7 @@ class DistilBertDistiller:
                 total_loss += loss.item()
 
             avg_loss = total_loss / len(train_loader)
-            print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}", flush=True)
 
             if val_loader:
                 acc, f1 = self.evaluate(val_loader)
@@ -377,7 +377,7 @@ class DistilBertDistiller:
 
         acc = accuracy_score(labels, preds)
         f1 = f1_score(labels, preds, average='macro')
-        print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}")
+        print(f"Validation Accuracy: {acc:.4f}, F1 (macro): {f1:.4f}", flush=True)
         return acc, f1
     
 
