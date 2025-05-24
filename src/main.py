@@ -144,18 +144,25 @@ def main(args: argparse.Namespace):
                 
         val_acc_arr = np.array(val_acc_list_total_all_alphas)
         val_f1_arr = np.array(val_f1_list_total_all_alphas)   
+        special_training_cfg = cfg.get("special_training", {})
 
+        if special_training_cfg:
+            training_name = special_training_cfg.get("type", "special")
+        else:
+            training_name = "standard"
+
+        file_prefix = f"{training_name}_{start_time.strftime('%d_%m_%y_%H_%M')}"
         save_metric_to_csv(val_acc_arr, 
-                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
+                        constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.csv",
                         alpha_values)
         save_metric_to_csv(val_f1_arr, 
-                        constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
+                        constants.OUTPUTS_DIR / f"val_F1_{file_prefix}.csv",
                         alpha_values) 
         
         plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", alpha_values, 
-                    constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+                    constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.csv")
         plot_metric_over_epochs(val_f1_list_total_all_alphas, "Validation F1 Score", alpha_values, 
-                    constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))   
+                    constants.OUTPUTS_DIR / f"val_F1_{file_prefix}.png")   
             
 
 if __name__ == "__main__":
