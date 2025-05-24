@@ -160,7 +160,7 @@ def main(args: argparse.Namespace):
                         alpha_values) 
         
         plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", alpha_values, 
-                    constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.csv")
+                    constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.png")
         plot_metric_over_epochs(val_f1_list_total_all_alphas, "Validation F1 Score", alpha_values, 
                     constants.OUTPUTS_DIR / f"val_F1_{file_prefix}.png")   
             
