@@ -33,12 +33,20 @@ def main(args: argparse.Namespace):
 
     datasets_cfg = cfg.get("datasets", {})
 
+    # To extract the dataset name for the validation set
+    val_dataset_name = next(
+    (dataset["name"] for dataset in datasets_cfg if dataset["set"] == "val"),
+    "unknown_val_set"
+    )
+
+
     val_acc_list, val_f1_list = [],[]
     if not args.baseline : # Train the model if not baseline
         # Get alpha value from config
         alpha_cfg = model_cfg.get("alpha", {})
         start, stop, step = alpha_cfg.get("start", 0.0), alpha_cfg.get("stop", 1.0), alpha_cfg.get("step", 0.1)
-        alpha_values = np.arange(start,stop+step/2,step) #alpha_values = [0.3]
+        #alpha_values = np.arange(start,stop+step/2,step) 
+        alpha_values = [0.5]
         print("Alpha values: ", alpha_values)
         
         # Add memory optimization hooks
@@ -144,25 +152,18 @@ def main(args: argparse.Namespace):
                 
         val_acc_arr = np.array(val_acc_list_total_all_alphas)
         val_f1_arr = np.array(val_f1_list_total_all_alphas)   
-        special_training_cfg = cfg.get("special_training", {})
 
-        if special_training_cfg:
-            training_name = special_training_cfg.get("type", "special")
-        else:
-            training_name = "standard"
-
-        file_prefix = f"{training_name}_{start_time.strftime('%d_%m_%y_%H_%M')}"
         save_metric_to_csv(val_acc_arr, 
-                        constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.csv",
+                        constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
                         alpha_values)
         save_metric_to_csv(val_f1_arr, 
-                        constants.OUTPUTS_DIR / f"val_F1_{file_prefix}.csv",
+                        constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".csv"),
                         alpha_values) 
         
-        plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", alpha_values, 
-                    constants.OUTPUTS_DIR / f"val_accuracy_{file_prefix}.png")
-        plot_metric_over_epochs(val_f1_list_total_all_alphas, "Validation F1 Score", alpha_values, 
-                    constants.OUTPUTS_DIR / f"val_F1_{file_prefix}.png")   
+        plot_metric_over_epochs(val_acc_list_total_all_alphas, "Validation Accuracy", val_dataset_name, alpha_values, 
+                    constants.OUTPUTS_DIR / str("val_accuracy_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))
+        plot_metric_over_epochs(val_f1_list_total_all_alphas, "Validation F1 Score", val_dataset_name, alpha_values, 
+                    constants.OUTPUTS_DIR / str("val_f1_" + start_time.strftime('%d_%m_%y_%H_%M') +".png"))   
             
 
 if __name__ == "__main__":
