@@ -77,7 +77,7 @@ def plot_metric_over_epochs(metric_array,metric_name, val_dataset_name, alpha_va
         for i, alpha in enumerate(alpha_values):
             plt.plot(np.arange(1,epochs+1), metric_array, label=rf'$\alpha=${alpha:.2f}')
 
-    plt.title(f'{metric_name} over Epochs for dataset (Validation Set: {val_dataset_name})')
+    plt.title(f'{metric_name} (Validation Set: {val_dataset_name})')
     plt.xlabel('Epoch')
     plt.ylabel(metric_name)
     plt.legend()
