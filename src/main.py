@@ -122,7 +122,8 @@ def main(args: argparse.Namespace):
                     'End': end_time.strftime('%d/%m/%y %H:%M:%S'),
                     'Accuracy': acc,
                     'F1': f1,
-                    'TestSet': test_name
+                    'TestSet': test_name,
+                    'CurrentAlpha': alpha,
                 }
                 out_dict["special_training"] = cfg.get("special_training", {})
                 out_dict.update(model_cfg)
