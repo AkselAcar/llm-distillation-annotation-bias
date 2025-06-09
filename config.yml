@@ -1,18 +1,18 @@
 ---
-special_training: False
+special_training: True
 
 # Data
 datasets:
 -
   set: "train"
-  name: 'Llama4_DGHD_train_mini.csv'
+  name: 'Llama4_DGHD_train.csv'
   split: [0, 0.8]
   shuffle: True
   num_workers: 0
 
 -
   set: "val"
-  name: 'Llama4_DGHD_train_mini.csv'
+  name: 'Llama4_DGHD_train.csv'
   split: [0.8, 1]
   shuffle: False
   num_workers: 0
@@ -41,8 +41,8 @@ model:
   learning_rate: 0.001
   batch_size: 64
   temperature: 1.0
-  alpha: # Parameter for weighted loss in distilled LF, if list, sets boundaries for list
-    start: 0
-    stop: 1
-    step: 0.1
+  alpha: # Parameter for weighted loss in distilled LF. if (stop-start) < step, returns [start] as alpha_values
+    start: 0.3
+    stop: 0.4
+    step: 1
   dagger_outer_loops: 5

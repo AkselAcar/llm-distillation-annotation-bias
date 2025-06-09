@@ -12,37 +12,6 @@ import os
 import pandas as pd
 import numpy as np
 
-"""
-def parse_datasets(cfg: dict, data_path: Path, batch_size: int) -> tuple[DataLoader, DataLoader, DataLoader]:
-    Parse the datasets from the configuration file.
-
-    Args:
-        cfg (dict): Configuration dictionary containing the informations about the data
-
-    Returns:
-        tuple: A tuple containing the loaders for train, validation, and test datasets.
-    
-
-    num_datasets = len(cfg)
-    if num_datasets == 0:
-        raise ValueError("No datasets provided in the configuration file.")
-
-    for i in tqdm(range(num_datasets), desc="Loading datasets", unit="dataset"):
-        dataset = cfg[i]
-        set_type = dataset.get("set", None)
-        if set_type == "train":
-            loader_train = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
-        elif set_type == "val":
-            if dataset.get("name", None) is not None :
-                loader_val = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
-            else :
-                loader_val = None
-        elif set_type == "test":
-            loader_test = load_data(cfg=dataset, data_path=data_path, batch_size=batch_size)
-        else:
-            raise ValueError(f"Unknown dataset type: {set_type}")
-    return loader_train, loader_val, loader_test
-"""
 
 def parse_datasets(cfg: dict, data_path: Path, batch_size: int) -> tuple[DataLoader, DataLoader, dict]:
     """

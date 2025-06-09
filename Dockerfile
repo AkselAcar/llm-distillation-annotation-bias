@@ -1,8 +1,8 @@
 FROM nvcr.io/nvidia/pytorch:25.03-py3
 
 # Valeurs par défaut
-ARG LDAP_USERNAME=rigaud
-ARG LDAP_UID=30264
+ARG LDAP_USERNAME=henking
+ARG LDAP_UID=224825
 ARG LDAP_GROUPNAME=rcp-runai-course-ee-559
 ARG LDAP_GID=84650
 
