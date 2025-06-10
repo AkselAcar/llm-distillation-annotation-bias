@@ -35,6 +35,10 @@ EE-559 - Deep Learning
 
 - config.yml: configuration file containing all parameters for the run. Here, one can determine what parameters to use for the run.
 
+## Run the model
+
+Run the file main.py to train the model. You can modify the different parameters you want to test in config.yml.
+
 
 ## Contributors
 This repository has been elaborated by Caspar Henking, Aksel Acar and Niels Rigaud during the 2025 Spring Semester.
